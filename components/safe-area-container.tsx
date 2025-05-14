@@ -10,12 +10,12 @@ export const SafeAreaContainer = ({
   insets,
 }: SafeAreaContainerProps) => (
   <main
-    className="flex min-h-screen flex-col items-center justify-center gap-y-3"
+    className="flex h-full w-full flex-col items-center justify-center gap-y-3 overflow-auto"
     style={{
-      marginTop: insets?.top ?? 0,
-      marginBottom: insets?.bottom ?? 0,
-      marginLeft: insets?.left ?? 0,
-      marginRight: insets?.right ?? 0,
+      paddingTop: insets?.top ?? 0,
+      paddingBottom: insets?.bottom ?? 0,
+      paddingLeft: insets?.left ?? 0,
+      paddingRight: insets?.right ?? 0,
     }}
   >
     {children}

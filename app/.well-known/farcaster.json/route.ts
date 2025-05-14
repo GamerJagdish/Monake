@@ -6,14 +6,14 @@ export async function GET() {
     // TODO: Add account association
     frame: {
       version: "1",
-      name: "Monad Farcaster MiniApp Template",
+      name: "MONAKE",
       iconUrl: `${APP_URL}/images/icon.png`,
       homeUrl: `${APP_URL}`,
       imageUrl: `${APP_URL}/images/feed.png`,
       screenshotUrls: [],
       tags: ["monad", "farcaster", "miniapp", "template"],
       primaryCategory: "developer-tools",
-      buttonTitle: "Launch Template",
+      buttonTitle: "Play Now!",
       splashImageUrl: `${APP_URL}/images/splash.png`,
       splashBackgroundColor: "#ffffff",
       webhookUrl: `${APP_URL}/api/webhook`,
