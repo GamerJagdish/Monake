@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import dynamic from 'next/dynamic';
-import Link from 'next/link'; // Import Link for navigation
+// import Link from 'next/link'; // No longer directly using Link for About button
+import { useRouter } from 'next/navigation'; // Import useRouter
 import { BackgroundGradientAnimation } from './BackgroundGradientAnimation';
 import { Volume2, VolumeX } from 'lucide-react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
@@ -28,12 +29,11 @@ const SnakeGame = dynamic(() => import('../SnakeGame'), {
       </div></div>,
 });
 
-// No longer need to dynamically import AboutPage here
-
 const MainMenu: React.FC = () => {
   const [showSnakeGame, setShowSnakeGame] = useState(false);
-  // const [showAboutPage, setShowAboutPage] = useState(false); // REMOVE this state
+  const [isLoadingAbout, setIsLoadingAbout] = useState(false); // New state for About page loading
   const [isMuted, setIsMuted] = useState(false);
+  const router = useRouter(); // Initialize useRouter
 
   const { address, isConnected, chainId } = useAccount();
   const { connect, connectors } = useConnect();
@@ -47,17 +47,37 @@ const MainMenu: React.FC = () => {
     setShowSnakeGame(true);
   };
 
-  // const handleAboutClick = () => { // REMOVE this handler
-  //   setShowAboutPage(true);
-  // };
+  const handleAboutClick = () => {
+    setIsLoadingAbout(true);
+    // Simulate a small delay if needed, or directly push
+    // setTimeout(() => router.push('/about'), 100); // Optional delay
+    router.push('/about');
+  };
 
   if (showSnakeGame) {
     return <SnakeGame onBackToMenu={() => setShowSnakeGame(false)} isMuted={isMuted} setIsMuted={setIsMuted} />;
   }
 
-  // if (showAboutPage) { // REMOVE this conditional rendering
-  //   return <AboutPage onBackToMenu={() => setShowAboutPage(false)} />;
-  // }
+  if (isLoadingAbout) { // Show loading screen for About page
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <BackgroundGradientAnimation 
+          gradientBackgroundStart="rgb(25, 25, 36)" 
+          gradientBackgroundEnd="rgb(15, 15, 25)"
+          firstColor="18, 113, 255"
+          secondColor="221, 74, 255"
+          thirdColor="100, 220, 255"
+          fourthColor="200, 50, 50"
+          fifthColor="180, 180, 50"
+        />
+        <div className="absolute z-50 inset-0 flex items-center justify-center text-white font-bold px-4 pointer-events-none text-3xl text-center md:text-4xl lg:text-7xl">
+          <p className="bg-clip-text text-transparent drop-shadow-2xl bg-gradient-to-b from-white/80 to-white/20">
+            Crawling🐍...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-4 relative">
@@ -91,7 +111,7 @@ const MainMenu: React.FC = () => {
           </Button>
         </motion.div>
         <CardHeader className="pt-10 pb-4">
-          <CardTitle className="text-4xl sm:text-5xl font-bold text-center monake-title">Monake</CardTitle>
+          <CardTitle className="text-4xl sm:text-5xl font-bold text-center monake-title">🐍<br/>Monake</CardTitle>
           
           {farcasterUser && (
             <motion.div 
@@ -186,15 +206,15 @@ const MainMenu: React.FC = () => {
           >
             Leaderboard (Coming Soon)
           </motion.button>
-          <Link href="/about" passHref className="w-full"> {/* Added className="w-full" here */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full py-3 text-lg sm:text-xl bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
-            >
-              About
-            </motion.button>
-          </Link>
+          {/* Updated About Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleAboutClick} // Use the new handler
+            className="w-full py-3 text-lg sm:text-xl bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+          >
+            About
+          </motion.button>
         </CardContent>
       </motion.div>
     </div>
