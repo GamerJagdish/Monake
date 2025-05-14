@@ -44,7 +44,7 @@ const getRandomFoodType = (isSuper: boolean = false): FoodItem => {
 };
 
 const getRandomPosition = (existingPositions: {x: number, y: number}[] = []) => {
-  let newPos;
+  let newPos: Position; // Explicitly type newPos with the Position interface
   do {
     newPos = {
       x: Math.floor(Math.random() * GRID_SIZE),
