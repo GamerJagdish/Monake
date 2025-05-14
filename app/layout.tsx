@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Poppins } from "next/font/google";
 import { FrameProvider } from "@/components/farcaster-provider";
 
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const poppins = Poppins({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-poppins',
+  weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900']
+});
 
 export const metadata: Metadata = {
-  title: "Monad Farcaster MiniApp Template",
-  description: "A template for building mini-apps on Farcaster and Monad",
+  title: "Monake on Monad",
+  description: "Play Monake and climb up the leaderboard to earn $Mon",
 };
 
 export default function RootLayout({
@@ -17,8 +22,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    
     <html lang="en">
-      <body className={inter.className}>
+      <body className={poppins.className}>
         <FrameProvider>{children}</FrameProvider>
       </body>
     </html>

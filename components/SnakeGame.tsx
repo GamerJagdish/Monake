@@ -1,16 +1,20 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
-import { monadTestnet } from "viem/chains";
+// Remove wagmi imports as they are no longer used here
+// import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi'; 
+// import { monadTestnet } from "viem/chains";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { useMotionValue, motion, animate } from "motion/react"; // Updated import
+import { BackgroundGradientAnimation } from "@/components/ui/BackgroundGradientAnimation";
+import { Volume2, VolumeX } from 'lucide-react'; // Import icons
 
-const GRID_SIZE = 17;
-const CELL_SIZE = 17; // pixels
+const GRID_SIZE = 18;
+const CELL_SIZE = 18; // pixels
 const GAME_BG_COLOR = "#2d3748"; // Tailwind gray-800
 const TEXT_COLOR = "#e2e8f0"; // Tailwind slate-200
-const GAME_SPEED = 120; // milliseconds, for smoother movement
-const SUPER_FOOD_SPAWN_CHANCE = 0.2; // 20% chance to spawn super food after normal food
+const GAME_SPEED = 130; // milliseconds, for smoother movement
+const SUPER_FOOD_SPAWN_CHANCE = 0.15; // 20% chance to spawn super food after normal food
 const SUPER_FOOD_BASE_DURATION = 50; // in game ticks (50 * 120ms = 6 seconds)
 
 interface FoodItem {
@@ -56,11 +60,18 @@ interface SuperFoodState extends Position {
   timer: number;
 }
 
-const SnakeGame: React.FC = () => {
-  const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
-  const { switchChain } = useSwitchChain();
+interface SnakeGameProps {
+  onBackToMenu: () => void;
+  isMuted: boolean; // Add isMuted prop
+  setIsMuted: React.Dispatch<React.SetStateAction<boolean>>; // Add setIsMuted prop
+}
+
+const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted }) => {
+  // Remove wagmi hook calls
+  // const { address, isConnected, chainId } = useAccount();
+  // const { connect, connectors } = useConnect();
+  // const { disconnect } = useDisconnect();
+  // const { switchChain } = useSwitchChain();
   const [snake, setSnake] = useState<Position[]>([{ x: 10, y: 10 }]);
   const [food, setFood] = useState(() => ({
     ...getRandomPosition(),
@@ -69,7 +80,7 @@ const SnakeGame: React.FC = () => {
   const [superFood, setSuperFood] = useState<SuperFoodState | null>(null);
   const [direction, setDirection] = useState<{ x: number; y: number }>({ x: 1, y: 0 }); // Right
   const [directionQueue, setDirectionQueue] = useState<{ x: number; y: number }[]>([]);
-  const [isMuted, setIsMuted] = useState(false);
+  // const [isMuted, setIsMuted] = useState(false); // Remove local state, use props instead
   const eatSoundRef = useRef<HTMLAudioElement | null>(null);
   const superEatSoundRef = useRef<HTMLAudioElement | null>(null);
   const startSoundRef = useRef<HTMLAudioElement | null>(null); // Added for start sound
@@ -102,7 +113,30 @@ const SnakeGame: React.FC = () => {
 
   const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
+  const animatedScore = useMotionValue(0); // Use motion value for score
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  // Removed prevScore state as it's not needed with useMotionValue
+
+  useEffect(() => {
+    // Animate score when it changes
+    // Only run animation if the game is NOT over
+    if (!gameOver) {
+      const controls = animate(animatedScore, score, {
+        duration: 0.5, // Adjust duration as needed
+        ease: "easeOut", // Optional: specify easing
+        onComplete: () => {
+          // Optional: if you need to do something when animation completes normally
+        }
+      });
+      return () => {
+        controls.stop();
+      };
+    } else {
+      // When game is over, immediately set animatedScore to the final score
+      // This ensures that if the animatedScore is used elsewhere, it shows the final value.
+      animatedScore.set(score);
+    }
+  }, [score, animatedScore, gameOver]);
 
   useEffect(() => {
     // Ensure sound files are in public/sounds/ directory
@@ -111,10 +145,10 @@ const SnakeGame: React.FC = () => {
     startSoundRef.current = new Audio('/sounds/game_start.mp3'); // Updated path
     gameOverSoundRef.current = new Audio('/sounds/game_over.wav'); // Added game over sound
     // The start sound is played via playSound('start') in restartGame.
-  }, [isMuted]);
+  }, []); // Dependency array can be empty if isMuted is handled by prop
 
   const playSound = useCallback((soundType: 'eat' | 'super_eat' | 'start' | 'game_over') => {
-    if (isMuted) return;
+    if (isMuted) return; // Uses the isMuted prop
     let soundToPlay: HTMLAudioElement | null = null;
     if (soundType === 'eat') {
       soundToPlay = eatSoundRef.current;
@@ -183,24 +217,37 @@ const SnakeGame: React.FC = () => {
     const diffX = touchEndX - touchStart.x;
     const diffY = touchEndY - touchStart.y;
 
+    let newDir: { x: number; y: number } | null = null;
+
+    // Determine the dominant swipe axis
     if (Math.abs(diffX) > Math.abs(diffY)) { // Horizontal swipe
-      if (diffX > 0 && direction.x === 0) { // Swipe Right
-        setDirection({ x: 1, y: 0 });
-      } else if (diffX < 0 && direction.x === 0) { // Swipe Left
-        setDirection({ x: -1, y: 0 });
+      if (diffX > 0) { // Swipe Right
+        // Check current direction or last queued direction to prevent direct reversal
+        const lastEffectiveDirectionX = directionQueue.length > 0 ? directionQueue[directionQueue.length - 1].x : direction.x;
+        if (lastEffectiveDirectionX === 0) newDir = { x: 1, y: 0 };
+      } else { // Swipe Left
+        const lastEffectiveDirectionX = directionQueue.length > 0 ? directionQueue[directionQueue.length - 1].x : direction.x;
+        if (lastEffectiveDirectionX === 0) newDir = { x: -1, y: 0 };
       }
     } else { // Vertical swipe
-      if (diffY > 0 && direction.y === 0) { // Swipe Down
-        setDirection({ x: 0, y: 1 });
-      } else if (diffY < 0 && direction.y === 0) { // Swipe Up
-        setDirection({ x: 0, y: -1 });
+      if (diffY > 0) { // Swipe Down
+        const lastEffectiveDirectionY = directionQueue.length > 0 ? directionQueue[directionQueue.length - 1].y : direction.y;
+        if (lastEffectiveDirectionY === 0) newDir = { x: 0, y: 1 };
+      } else { // Swipe Up
+        const lastEffectiveDirectionY = directionQueue.length > 0 ? directionQueue[directionQueue.length - 1].y : direction.y;
+        if (lastEffectiveDirectionY === 0) newDir = { x: 0, y: -1 };
       }
     }
+
+    if (newDir) {
+      setDirectionQueue(q => [...q, newDir!]);
+    }
+
     setTouchStart(null);
   };
 
   useEffect(() => {
-    if (gameOver || isGameStarting) return; // Modified to include isGameStarting
+    if (gameOver || isGameStarting) return; 
 
     const gameLoop = setInterval(() => {
       // Super food timer update
@@ -247,6 +294,7 @@ const SnakeGame: React.FC = () => {
         let ateFood = false;
         // Super Food collision
         if (superFood && head.x === superFood.x && head.y === superFood.y) {
+          // Removed setPrevScore(score);
           setScore(s => s + superFood.type.score);
           playSound('super_eat');
           setSuperFood(null); // Remove super food
@@ -254,6 +302,7 @@ const SnakeGame: React.FC = () => {
         } 
         // Normal Food collision
         else if (head.x === food.x && head.y === food.y) {
+          // Removed setPrevScore(score);
           setScore(s => s + food.type.score);
           playSound('eat');
           spawnNewFood();
@@ -306,56 +355,44 @@ const SnakeGame: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-900 text-slate-200 p-2">
-      {/* Wallet UI moved to CardHeader */}
+    <div className="flex flex-col items-center justify-center w-full h-full text-slate-200 p-2 relative">
+      <BackgroundGradientAnimation 
+        gradientBackgroundStart="rgb(25, 25, 36)" 
+        gradientBackgroundEnd="rgb(15, 15, 25)"
+        firstColor="18, 113, 255"
+        secondColor="221, 74, 255"
+        thirdColor="100, 220, 255"
+        fourthColor="0, 200, 50"
+        fifthColor="180, 180, 50"
+      />
 
-      <Card className="w-full max-w-xs bg-gray-800 border-gray-700 shadow-xl">
-        <CardHeader className="flex flex-row items-center justify-between p-4"> {/* Adjusted classes */}
-          <CardTitle className="text-2xl md:text-3xl font-bold mr-4 flex-shrink-0 monake-title">Monake</CardTitle>
-          <div className="flex flex-col items-end space-y-1 text-right min-w-0 flex-shrink"> {/* Adjusted classes, removed ml-auto, corrected flex-shrink-1 */} 
-            {isConnected ? (
-              <>
-                <p className="text-xs md:text-sm">
-                  {address?.substring(0, 6)}...{address?.substring(address.length - 4)}
-                </p>
-                <p className="text-xs md:text-sm text-slate-100 break-all">
-                  Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : (chainId ? `ID ${chainId}`: 'N/A')}
-                </p>
-                {chainId !== monadTestnet.id && chainId && switchChain && (
-                  <Button variant="outline" size="sm" className="text-xs h-auto mt-1 py-1 px-2 border-slate-500 hover:bg-slate-700 text-white" onClick={() => switchChain({ chainId: monadTestnet.id })}>
-                    Switch to Monad
-                  </Button>
-                )}
-            {isGameStarting && countdownValue > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 rounded-md z-20">
-                <p className="text-6xl font-bold text-white animate-ping" style={{ animationDuration: '1s' }}>{countdownValue}</p>
-              </div>
-            )}
-                <Button variant="destructive" size="sm" className="text-xs h-auto mt-1 py-1 px-2 text-white" onClick={() => disconnect()}>
-                  Disconnect
-                </Button>
-              </>
-            ) : (
-              <Button
-                size="sm"
-                className="py-1 px-2"
-                onClick={() => {
-                  if (connectors && connectors.length > 0) {
-                    connect({ connector: connectors[0] });
-                  } else {
-                    console.error('No connectors found.');
-                  }
-                }}
-              >
-                Connect Wallet
-              </Button>
-            )}
-            {isGameStarting && countdownValue > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 rounded-md z-20">
-                <p className="text-6xl font-bold text-white animate-ping" style={{ animationDuration: '1s' }}>{countdownValue}</p>
-              </div>
-            )}
-          </div>
+      <Card className="w-full max-w-sm bg-gray-800/80 border-gray-700 shadow-xl backdrop-blur-sm z-10">
+        <CardHeader className="flex flex-row items-center justify-center p-4"> 
+          <CardTitle 
+            className="text-4xl md:text-3xl font-bold flex-shrink-0 monake-title"
+            style={{
+              // Add textShadow for the glow effect
+              // The color of the shadow can be adjusted. Using a white glow for general visibility.
+              // You might want to experiment with colors that match the gradient if a white glow isn't ideal.
+              textShadow: '0 0 8px rgba(203, 113, 255, 0.5), 0 0 12px rgba(182, 36, 255, 0.3)' 
+            }}
+          >
+             Monake
+          </CardTitle>
+          <motion.div
+            className="absolute top-2 right-2 z-20" 
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <Button 
+              onClick={() => setIsMuted(!isMuted)} 
+              variant="outline" 
+              size="icon" 
+              className="p-1.5 h-auto bg-gray-800/60 hover:bg-gray-700/80 border-gray-600 text-slate-200 rounded-full"
+            >
+              {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </Button>
+          </motion.div>
         </CardHeader>
         <CardContent 
           className="flex flex-col items-center space-y-2 p-2"
@@ -363,11 +400,22 @@ const SnakeGame: React.FC = () => {
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="flex items-center justify-between w-full mb-2">
-            <p className="text-xl">Score: <span className="font-semibold text-amber-400">{score}</span></p>
-            <Button onClick={() => setIsMuted(!isMuted)} variant="outline" size="sm" className="p-2 h-auto text-xs">
-              {isMuted ? '🔇 Unmute' : '🔊 Mute'}
-            </Button>
+          {/* Score Display - Centered with new layout */}
+          <div className="flex flex-col items-center w-full mb-2"> {/* Centering container */}
+            <p 
+              className="text-3xl font-bold text-cyan-400 mb-1"
+              style={{
+                textShadow: '0 0 5px rgba(0, 255, 255, 0.5), 0 0 10px rgba(0, 255, 255, 0.3)',
+              }} /* Bright cyan color with a subtle glow effect */
+            >
+              Score
+            </p>
+            <motion.span 
+              className="text-4xl font-bold text-slate-100" /* Larger, bold, bright color for score value */
+            >
+              {/* Display final score if game is over, otherwise display animated score */}
+              {gameOver ? score : (typeof animatedScore.get() === 'number' ? Math.round(animatedScore.get()) : 0)}
+            </motion.span>
           </div>
           <div
             className="border border-gray-600 shadow-inner bg-gray-800 overflow-hidden"
@@ -515,11 +563,16 @@ const SnakeGame: React.FC = () => {
               </div>
             )}
             {gameOver && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-75 rounded-md">
-                <h2 className="text-3xl font-bold text-red-500 mb-2">Game Over!</h2>
-                <p className="text-xl mb-4 text-white">Your Score: {score}</p>
-                <Button onClick={restartGame} variant="secondary" className="bg-emerald-500 hover:bg-emerald-600 text-white">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-75 rounded-md z-20">
+                <p className="text-4xl font-bold text-white mb-2">💀</p>
+                <p className="text-4xl font-bold text-white mb-4">Game Over!</p>
+                {/* This already correctly displays the final score */}
+                <p className="text-2xl text-white mb-6">Your Score: {score}</p> 
+                <Button onClick={restartGame} className="py-3 px-6 text-lg bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md mb-4">
                   Restart Game
+                </Button>
+                <Button onClick={onBackToMenu} className="py-3 px-6 text-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md">
+                  Back to Main Menu
                 </Button>
               </div>
             )}
@@ -530,11 +583,11 @@ const SnakeGame: React.FC = () => {
             )}
           </div>
         </CardContent>
-        {!gameOver && (
+        
         <CardFooter className="flex justify-center pt-4">
             <p className="text-xs text-gray-400">Use arrow keys or swipe to move</p>
         </CardFooter>
-        )}
+        
       </Card>
       <style jsx global>{`
         html, body, #__next, div#__next > div {
@@ -554,7 +607,7 @@ const SnakeGame: React.FC = () => {
           background-clip: text;
           -webkit-background-clip: text;
           color: transparent;
-          background-image: linear-gradient(90deg, red, orange, yellow, green, blue, indigo, violet, red); // Extended gradient for smoother loop
+          background-image: linear-gradient(90deg, #6E54FFff, #6651FAff, #5F4EF5ff, #574AF0ff, #4F47EBff, #6E54FFff); // Extended gradient for smoother loop
           background-size: 400% 100%; // Increased size for smoother animation
         }
 
