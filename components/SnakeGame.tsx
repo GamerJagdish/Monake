@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { useMotionValue, motion, animate } from "motion/react"; // Updated import
 import { BackgroundGradientAnimation } from "@/components/ui/BackgroundGradientAnimation";
 import { Volume2, VolumeX } from 'lucide-react'; // Import icons
-
+import { sdk } from '@farcaster/frame-sdk';
 const GRID_SIZE = 18;
 const CELL_SIZE = 18; // pixels
 const GAME_BG_COLOR = "#2d3748"; // Tailwind gray-800
@@ -25,7 +25,11 @@ interface FoodItem {
   isSuperFood?: boolean;
   duration?: number; // in game ticks
 }
-
+useEffect(() => {
+  // Keep native gestures disabled all the time
+  sdk.actions.ready({ disableNativeGestures: true });
+  // No need for cleanup since we want gestures disabled consistently
+}, []);
 const availableFoodTypes: FoodItem[] = [
   { name: 'Apple', color: '#EF4444', score: 1, emoji: '🍎' },
   { name: 'Banana', color: '#F59E0B', score: 2, emoji: '🍌' },

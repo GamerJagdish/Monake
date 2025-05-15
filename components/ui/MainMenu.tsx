@@ -12,7 +12,7 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { monadTestnet } from "viem/chains";
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
-
+import { sdk } from '@farcaster/frame-sdk';
 // Define chain ID to name mapping
 const chainIdToName: Record<number, string> = {
   [monadTestnet.id]: 'Monad Testnet',
@@ -62,6 +62,12 @@ const MainMenu: React.FC = () => {
   const { context: miniAppContext } = useMiniAppContext();
   const farcasterUser = miniAppContext?.user;
 
+  useEffect(() => {
+    // Keep native gestures disabled all the time
+    sdk.actions.ready({ disableNativeGestures: true });
+    // No need for cleanup since we want gestures disabled consistently
+  }, []);
+
   const handlePlayClick = () => {
     setShowSnakeGame(true);
   };
@@ -78,7 +84,11 @@ const MainMenu: React.FC = () => {
     }
   }, [router]);
   if (showSnakeGame) {
-    return <SnakeGame onBackToMenu={() => setShowSnakeGame(false)} isMuted={isMuted} setIsMuted={setIsMuted} />;
+    return <SnakeGame onBackToMenu={() => {
+      setShowSnakeGame(false);
+      // Explicitly re-enable gestures when returning to menu
+      sdk.actions.ready({ disableNativeGestures: false });
+    }} isMuted={isMuted} setIsMuted={setIsMuted} />;
   }
 
   if (isLoadingAbout) { // Show loading screen for About page
@@ -249,6 +259,16 @@ const MainMenu: React.FC = () => {
           >
             About
           </motion.button>
+          {sdk.actions && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => sdk.actions.addFrame()}
+              className="w-full py-3 text-lg sm:text-xl bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+            >
+              Add to Farcaster
+            </motion.button>
+          )}
         </CardContent>
       </motion.div>
     </div>

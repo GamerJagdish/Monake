@@ -21,7 +21,7 @@ export async function GET() {
       primaryCategory: "games",
       buttonTitle: "Play now!",
       splashImageUrl: `${APP_URL}/images/splash.png`,
-      splashBackgroundColor: "#000000",
+      splashBackgroundColor: "#ffffff",
       webhookUrl: `${APP_URL}/api/webhook`,
     },
   };
