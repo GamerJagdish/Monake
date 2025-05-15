@@ -25,11 +25,9 @@ interface FoodItem {
   isSuperFood?: boolean;
   duration?: number; // in game ticks
 }
-useEffect(() => {
-  // Keep native gestures disabled all the time
+
   sdk.actions.ready({ disableNativeGestures: true });
-  // No need for cleanup since we want gestures disabled consistently
-}, []);
+
 const availableFoodTypes: FoodItem[] = [
   { name: 'Apple', color: '#EF4444', score: 1, emoji: '🍎' },
   { name: 'Banana', color: '#F59E0B', score: 2, emoji: '🍌' },
@@ -599,6 +597,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
           width: 100%;
           margin: 0;
           padding: 0;
+          overscroll-behavior: contain;
           overflow: hidden; /* Prevent body scrollbars, rely on app's internal scroll */
           box-sizing: border-box;
         }
