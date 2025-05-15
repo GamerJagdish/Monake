@@ -36,7 +36,7 @@ const socialLinks = [
   {
     name: 'Telegram',
     icon: <FaTelegramPlane size={18} />,
-    url: 'https://t.me/@gamer_jagdish', // Replace with your Telegram URL/handle
+    url: 'https://t.me/gamer_jagdish', // Replace with your Telegram URL/handle
     handle: 'gamer_jagdish' // Replace with your Telegram handle
   }
 ];
