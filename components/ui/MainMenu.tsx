@@ -263,7 +263,18 @@ const MainMenu: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => sdk.actions.addFrame()}
+              onClick={async () => {
+                try {
+                  await sdk.actions.addFrame();
+                } catch (error: any) {
+                  if (error && error.message && error.message.includes("Cannot read properties of undefined (reading 'result')")) {
+                    alert("You need to run this in Farcaster");
+                  } else {
+                    // Handle other errors or re-throw if necessary
+                    console.error("Error adding frame:", error);
+                  }
+                }
+              }}
               className="w-full py-3 text-lg sm:text-xl bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
             >
               Add to Farcaster

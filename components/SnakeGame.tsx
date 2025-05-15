@@ -9,12 +9,14 @@ import { useMotionValue, motion, animate } from "motion/react"; // Updated impor
 import { BackgroundGradientAnimation } from "@/components/ui/BackgroundGradientAnimation";
 import { Volume2, VolumeX } from 'lucide-react'; // Import icons
 import { sdk } from '@farcaster/frame-sdk';
-const GRID_SIZE = 18;
-const CELL_SIZE = 18; // pixels
+import { useMiniAppContext } from "@/hooks/use-miniapp-context"; // Added import
+import { APP_URL } from "@/lib/constants"; // Added import
+const GRID_SIZE = 12; // Adjusted for a smaller grid, e.g., 12x12
+const CELL_SIZE = 30; // Increased for larger cells and snake
 const GAME_BG_COLOR = "#2d3748"; // Tailwind gray-800
 const TEXT_COLOR = "#e2e8f0"; // Tailwind slate-200
-const GAME_SPEED = 130; // milliseconds, for smoother movement
-const SUPER_FOOD_SPAWN_CHANCE = 0.15; // 20% chance to spawn super food after normal food
+const GAME_SPEED = 200; // milliseconds, for smoother movement
+const SUPER_FOOD_SPAWN_CHANCE = 0.2; // 20% chance to spawn super food after normal food
 const SUPER_FOOD_BASE_DURATION = 50; // in game ticks (50 * 120ms = 6 seconds)
 
 interface FoodItem {
@@ -26,7 +28,7 @@ interface FoodItem {
   duration?: number; // in game ticks
 }
 
-  sdk.actions.ready({ disableNativeGestures: true });
+// sdk.actions.ready({ disableNativeGestures: true }); // Moved to useEffect
 
 const availableFoodTypes: FoodItem[] = [
   { name: 'Apple', color: '#EF4444', score: 1, emoji: '🍎' },
@@ -69,19 +71,23 @@ interface SnakeGameProps {
 }
 
 const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted }) => {
+  const { actions } = useMiniAppContext(); // Added to get Farcaster actions
   // Remove wagmi hook calls
   // const { address, isConnected, chainId } = useAccount();
   // const { connect, connectors } = useConnect();
   // const { disconnect } = useDisconnect();
   // const { switchChain } = useSwitchChain();
-  const [snake, setSnake] = useState<Position[]>([{ x: 10, y: 10 }]);
+  const [snake, setSnake] = useState<Position[]>([{ x: Math.floor(GRID_SIZE / 2), y: Math.floor(GRID_SIZE / 2) }]);
   const [food, setFood] = useState(() => ({
     ...getRandomPosition(),
     type: getRandomFoodType(),
   }));
   const [superFood, setSuperFood] = useState<SuperFoodState | null>(null);
-  const [direction, setDirection] = useState<{ x: number; y: number }>({ x: 1, y: 0 }); // Right
-  const [directionQueue, setDirectionQueue] = useState<{ x: number; y: number }[]>([]);
+  // const [direction, setDirection] = useState<{ x: number; y: number }>({ x: 1, y: 0 }); // Right
+  // const [directionQueue, setDirectionQueue] = useState<{ x: number; y: number }[]>([]);
+  const directionRef = useRef<{ x: number; y: number }>({ x: 1, y: 0 });
+  const directionQueueRef = useRef<{ x: number; y: number }[]>([]);
+
   // const [isMuted, setIsMuted] = useState(false); // Remove local state, use props instead
   const eatSoundRef = useRef<HTMLAudioElement | null>(null);
   const superEatSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -89,6 +95,20 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const gameOverSoundRef = useRef<HTMLAudioElement | null>(null); // Added for game over sound
   const [isGameStarting, setIsGameStarting] = useState(true); // Added for countdown phase
   const [countdownValue, setCountdownValue] = useState(3); // Added for countdown value
+
+  useEffect(() => {
+    sdk.actions.ready({ disableNativeGestures: true });
+    // Optional: If you need to re-enable gestures on unmount, though MainMenu handles it.
+    // return () => {
+    //   sdk.actions.ready({ disableNativeGestures: false });
+    // };
+  }, []);
+
+  // Call restartGame on initial mount to ensure game starts correctly with sound
+  useEffect(() => {
+    restartGame();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   const spawnNewFood = useCallback(() => {
     const occupiedPositions = [...snake, food ? {x: food.x, y: food.y} : null, superFood ? {x: superFood.x, y: superFood.y} : null].filter(p => p !== null) as Position[];
@@ -143,9 +163,13 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   useEffect(() => {
     // Ensure sound files are in public/sounds/ directory
     eatSoundRef.current = new Audio('/sounds/eat.wav');
+    eatSoundRef.current.load(); // Preload sound
     superEatSoundRef.current = new Audio('/sounds/super_eat.wav');
+    superEatSoundRef.current.load(); // Preload sound
     startSoundRef.current = new Audio('/sounds/game_start.mp3'); // Updated path
+    startSoundRef.current.load(); // Preload sound
     gameOverSoundRef.current = new Audio('/sounds/game_over.wav'); // Added game over sound
+    gameOverSoundRef.current.load(); // Preload sound
     // The start sound is played via playSound('start') in restartGame.
   }, []); // Dependency array can be empty if isMuted is handled by prop
 
@@ -171,25 +195,30 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       let newDir: { x: number; y: number } | null = null;
+      const latestDir = directionQueueRef.current.length > 0 
+        ? directionQueueRef.current[directionQueueRef.current.length - 1] 
+        : directionRef.current;
+
       switch (event.key) {
         case 'ArrowUp':
-          if (direction.y === 0 || (directionQueue.length > 0 && directionQueue[directionQueue.length - 1].y === 0)) newDir = { x: 0, y: -1 };
+          if (latestDir.y === 0) newDir = { x: 0, y: -1 };
           break;
         case 'ArrowDown':
-          if (direction.y === 0 || (directionQueue.length > 0 && directionQueue[directionQueue.length - 1].y === 0)) newDir = { x: 0, y: 1 };
+          if (latestDir.y === 0) newDir = { x: 0, y: 1 };
           break;
         case 'ArrowLeft':
-          if (direction.x === 0 || (directionQueue.length > 0 && directionQueue[directionQueue.length - 1].x === 0)) newDir = { x: -1, y: 0 };
+          if (latestDir.x === 0) newDir = { x: -1, y: 0 };
           break;
         case 'ArrowRight':
-          if (direction.x === 0 || (directionQueue.length > 0 && directionQueue[directionQueue.length - 1].x === 0)) newDir = { x: 1, y: 0 };
+          if (latestDir.x === 0) newDir = { x: 1, y: 0 };
           break;
       }
       if (newDir) {
-        setDirectionQueue(q => [...q, newDir!]);
+        // setDirectionQueue(q => [...q, newDir!]);
+        directionQueueRef.current.push(newDir!);
       }
     },
-    [direction, directionQueue]
+    [] // Refs are stable, no need for them in dependency array
   );
 
   useEffect(() => {
@@ -220,29 +249,28 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     const diffY = touchEndY - touchStart.y;
 
     let newDir: { x: number; y: number } | null = null;
+    const latestDir = directionQueueRef.current.length > 0
+      ? directionQueueRef.current[directionQueueRef.current.length - 1]
+      : directionRef.current;
 
     // Determine the dominant swipe axis
     if (Math.abs(diffX) > Math.abs(diffY)) { // Horizontal swipe
       if (diffX > 0) { // Swipe Right
-        // Check current direction or last queued direction to prevent direct reversal
-        const lastEffectiveDirectionX = directionQueue.length > 0 ? directionQueue[directionQueue.length - 1].x : direction.x;
-        if (lastEffectiveDirectionX === 0) newDir = { x: 1, y: 0 };
+        if (latestDir.x === 0) newDir = { x: 1, y: 0 };
       } else { // Swipe Left
-        const lastEffectiveDirectionX = directionQueue.length > 0 ? directionQueue[directionQueue.length - 1].x : direction.x;
-        if (lastEffectiveDirectionX === 0) newDir = { x: -1, y: 0 };
+        if (latestDir.x === 0) newDir = { x: -1, y: 0 };
       }
     } else { // Vertical swipe
       if (diffY > 0) { // Swipe Down
-        const lastEffectiveDirectionY = directionQueue.length > 0 ? directionQueue[directionQueue.length - 1].y : direction.y;
-        if (lastEffectiveDirectionY === 0) newDir = { x: 0, y: 1 };
+        if (latestDir.y === 0) newDir = { x: 0, y: 1 };
       } else { // Swipe Up
-        const lastEffectiveDirectionY = directionQueue.length > 0 ? directionQueue[directionQueue.length - 1].y : direction.y;
-        if (lastEffectiveDirectionY === 0) newDir = { x: 0, y: -1 };
+        if (latestDir.y === 0) newDir = { x: 0, y: -1 };
       }
     }
 
     if (newDir) {
-      setDirectionQueue(q => [...q, newDir!]);
+      // setDirectionQueue(q => [...q, newDir!]);
+      directionQueueRef.current.push(newDir!);
     }
 
     setTouchStart(null);
@@ -262,24 +290,26 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         });
       }
 
+      // Process direction queue
+      if (directionQueueRef.current.length > 0) {
+        const newDirectionFromQueue = directionQueueRef.current.shift(); // Get and remove the first direction
+        if (newDirectionFromQueue) {
+          directionRef.current = newDirectionFromQueue; // Update the main direction
+        }
+      }
+      // Now directionRef.current holds the direction for this tick
+
       setSnake((prevSnake) => {
-        let nextDirection = direction;
-        setDirectionQueue(q => {
-          if (q.length > 0) {
-            nextDirection = q[0];
-            setDirection(nextDirection); // Update main direction when one is pulled from queue
-            return q.slice(1);
-          }
-          return q;
-        });
         const newSnake = [...prevSnake];
         const head = { ...newSnake[0] };
-        head.x += nextDirection.x;
-        head.y += nextDirection.y;
+        // Use the updated direction from directionRef.current
+        head.x += directionRef.current.x;
+        head.y += directionRef.current.y;
 
         // Wall collision
         if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
           setGameOver(true);
+          playSound('game_over');
           return prevSnake;
         }
 
@@ -287,6 +317,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         for (let i = 1; i < newSnake.length; i++) {
           if (newSnake[i].x === head.x && newSnake[i].y === head.y) {
             setGameOver(true);
+            playSound('game_over');
             return prevSnake;
           }
         }
@@ -319,14 +350,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       });
     }, GAME_SPEED); // Use GAME_SPEED for interval
     return () => clearInterval(gameLoop);
-  }, [snake, direction, food, superFood, gameOver, spawnNewFood, trySpawnSuperFood, isGameStarting, playSound]); // Added playSound
+  }, [snake, food, superFood, gameOver, spawnNewFood, trySpawnSuperFood, isGameStarting, playSound, setSnake, setFood, setSuperFood, setGameOver, animatedScore, score]); // Added relevant state setters and values that the loop depends on or modifies
 
-  // useEffect to play game over sound
-  useEffect(() => {
-    if (gameOver) {
-      playSound('game_over');
-    }
-  }, [gameOver, playSound]);
+  // Game over sound is now played directly when gameOver is set within the game loop.
 
   // useEffect for countdown
   useEffect(() => {
@@ -337,28 +363,39 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       return () => clearInterval(timer);
     } else if (isGameStarting && countdownValue === 0) {
       setIsGameStarting(false);
+      // Start sound is now played in restartGame
     }
-  }, [isGameStarting, countdownValue]);
+  }, [isGameStarting, countdownValue]); // playSound removed from dependencies as it's no longer called here
 
   const restartGame = () => {
-    playSound('start'); // Play start sound before countdown
+    playSound('start'); // Play start sound when game restarts and countdown begins
     setIsGameStarting(true);
     setCountdownValue(3);
-    setSnake([{ x: 10, y: 10 }]);
+    const initialSnakePos = { x: Math.floor(GRID_SIZE / 2), y: Math.floor(GRID_SIZE / 2) };
+    setSnake([initialSnakePos]);
     setFood({
-        ...getRandomPosition([{ x: 10, y: 10 }]),
+        ...getRandomPosition([initialSnakePos]),
         type: getRandomFoodType(),
     });
     setSuperFood(null);
-    setDirection({ x: 1, y: 0 });
-    setDirectionQueue([]);
+    // setDirection({ x: 1, y: 0 });
+    // setDirectionQueue([]);
+    directionRef.current = { x: 1, y: 0 };
+    directionQueueRef.current = [];
     setGameOver(false);
     setScore(0);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full text-slate-200 p-2 relative">
-      <BackgroundGradientAnimation 
+    <div 
+      className="flex flex-col items-center justify-center w-full h-full text-slate-200 p-2 relative"
+      style={{
+        backgroundColor: '#ad99ff',
+        backgroundImage: 'radial-gradient(at 71% 88%, hsla(198,92%,67%,1) 0px, transparent 50%), radial-gradient(at 69% 34%, hsla(281,80%,71%,1) 0px, transparent 50%), radial-gradient(at 83% 89%, hsla(205,61%,69%,1) 0px, transparent 50%), radial-gradient(at 23% 14%, hsla(234,83%,62%,1) 0px, transparent 50%), radial-gradient(at 18% 20%, hsla(302,94%,70%,1) 0px, transparent 50%), radial-gradient(at 1% 45%, hsla(196,99%,70%,1) 0px, transparent 50%), radial-gradient(at 34% 18%, hsla(316,72%,67%,1) 0px, transparent 50%)',
+      }}
+    >
+      {/* The BackgroundGradientAnimation component remains commented out or can be removed if preferred. */}
+      {/* <BackgroundGradientAnimation 
         gradientBackgroundStart="rgb(25, 25, 36)" 
         gradientBackgroundEnd="rgb(15, 15, 25)"
         firstColor="18, 113, 255"
@@ -366,7 +403,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         thirdColor="100, 220, 255"
         fourthColor="0, 200, 50"
         fifthColor="180, 180, 50"
-      />
+      /> */}
 
       <Card className="w-full max-w-sm bg-gray-800/80 border-gray-700 shadow-xl backdrop-blur-sm z-10">
         <CardHeader className="flex flex-row items-center justify-center p-4"> 
@@ -415,8 +452,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             <motion.span 
               className="text-4xl font-bold text-slate-100" /* Larger, bold, bright color for score value */
             >
-              {/* Display final score if game is over, otherwise display animated score */}
-              {gameOver ? score : (typeof animatedScore.get() === 'number' ? Math.round(animatedScore.get()) : 0)}
+              {/* Display animated score, or final score if game is over */}
+              {typeof animatedScore.get() === 'number' ? Math.round(animatedScore.get()) : 0}
             </motion.span>
           </div>
           <div
@@ -468,7 +505,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             {snake.map((segment, index) => {
               const isHead = index === 0;
               const isTail = index === snake.length - 1 && snake.length > 1;
-              let segmentClasses = "absolute rounded-md transition-all duration-100 ease-linear"; // Added transition
+              let segmentClasses = "absolute rounded-md transition-all ease-linear"; // duration-100 removed, transition duration now in style
 
               if (isHead) {
                 segmentClasses += " bg-green-400 z-10";
@@ -485,12 +522,14 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                       height: CELL_SIZE,
                       left: segment.x * CELL_SIZE,
                       top: segment.y * CELL_SIZE,
-                      // transform: `rotate(${getRotationAngle(direction)}deg)` // Optional: rotate head
+                      transitionProperty: 'left, top, transform',
+                      transitionDuration: `${GAME_SPEED}ms`,
+                      // transform: `rotate(${getRotationAngle(directionRef.current)}deg)` // Optional: rotate head, using directionRef.current
                     }}
                   >
                     {/* Eyes positioned based on direction */}
-                    <div className={`eye ${direction.x === 1 ? 'eye-right-pos' : direction.x === -1 ? 'eye-left-pos' : direction.y === 1 ? 'eye-down-pos' : 'eye-up-pos'}`}></div>
-                    <div className={`eye ${direction.x === 1 ? 'eye-right-pos' : direction.x === -1 ? 'eye-left-pos' : direction.y === 1 ? 'eye-down-pos' : 'eye-up-pos'}`}></div>
+                    <div className={`eye ${directionRef.current.x === 1 ? 'eye-right-pos' : directionRef.current.x === -1 ? 'eye-left-pos' : directionRef.current.y === 1 ? 'eye-down-pos' : 'eye-up-pos'}`}></div>
+                    <div className={`eye ${directionRef.current.x === 1 ? 'eye-right-pos' : directionRef.current.x === -1 ? 'eye-left-pos' : directionRef.current.y === 1 ? 'eye-down-pos' : 'eye-up-pos'}`}></div>
                   </div>
                 );
               } else if (isTail) {
@@ -505,6 +544,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                       left: segment.x * CELL_SIZE + CELL_SIZE * 0.1, // Centered
                       top: segment.y * CELL_SIZE + CELL_SIZE * 0.1, // Centered
                       borderRadius: '40% 40% 20% 20%', // Tapered tail shape
+                      transitionProperty: 'left, top',
+                      transitionDuration: `${GAME_SPEED}ms`,
                     }}
                   />
                 );
@@ -519,6 +560,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                       height: CELL_SIZE,
                       left: segment.x * CELL_SIZE,
                       top: segment.y * CELL_SIZE,
+                      transitionProperty: 'left, top',
+                      transitionDuration: `${GAME_SPEED}ms`,
                     }}
                   />
                 );
@@ -564,25 +607,47 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                 <p className="text-6xl font-bold text-white animate-ping" style={{ animationDuration: '1s' }}>{countdownValue}</p>
               </div>
             )}
-            {gameOver && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-75 rounded-md z-20">
-                <p className="text-4xl font-bold text-white mb-2">💀</p>
-                <p className="text-4xl font-bold text-white mb-4">Game Over!</p>
-                {/* This already correctly displays the final score */}
-                <p className="text-2xl text-white mb-6">Your Score: {score}</p> 
-                <Button onClick={restartGame} className="py-3 px-6 text-lg bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md mb-4">
-                  Restart Game
-                </Button>
-                <Button onClick={onBackToMenu} className="py-3 px-6 text-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md">
-                  Back to Main Menu
-                </Button>
-              </div>
-            )}
-            {isGameStarting && countdownValue > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 rounded-md z-20">
-                <p className="text-6xl font-bold text-white animate-ping" style={{ animationDuration: '1s' }}>{countdownValue}</p>
-              </div>
-            )}
+              {/* Game Over Modal */}
+              {gameOver && (
+                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 rounded-lg">
+                   <p className="text-6xl font-bold text-white mb-3">💀</p>
+                  <p className="text-5xl font-bold text-red-500 mb-6 animate-pulse">Game Over</p>
+                 
+                  {/* <p className="text-2xl text-slate-300 mb-1">Final Score</p> */}
+                  {/* <p className="text-3xl font-bold text-cyan-400 mb-4">{score}</p> */}
+                  <div className="flex space-x-3">
+                    <Button 
+                      onClick={restartGame} 
+                      className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"
+                    >
+                      Restart
+                    </Button>
+                    <Button 
+                      onClick={onBackToMenu} 
+                      className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"
+                    >
+                      Menu
+                    </Button>
+                  </div>
+                  {/* Share on Farcaster Button */} 
+                  <Button 
+                      onClick={() => {
+                        if (actions) {
+                          actions.composeCast({
+                            text: `I scored ${score} in the Monad Snake Game! Can you beat my score? 🐍🎮`,
+                            embeds: [`${APP_URL}`],
+                          });
+                        }
+                      }}
+                      className="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"
+                      disabled={!actions} // Disable if actions are not available
+                    >
+                    Share Score
+                  </Button>
+                </div>
+              )}
+
+              
           </div>
         </CardContent>
         

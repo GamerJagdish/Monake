@@ -7,6 +7,7 @@ import { BackgroundGradientAnimation } from '@/components/ui/BackgroundGradientA
 import { SiFarcaster, SiX, SiGithub } from 'react-icons/si';  // Added FaHeart for donate
 import { FaTelegramPlane, FaHeart, FaExclamationCircle, FaCheckCircle, FaInfoCircle, FaWallet } from 'react-icons/fa';
 import { BiNetworkChart } from 'react-icons/bi';
+import { useMiniAppContext } from '@/hooks/use-miniapp-context'; // Added for Farcaster SDK actions
 
 // Wagmi and Viem imports for donation
 import { useAccount, useSendTransaction, useSwitchChain } from 'wagmi';
@@ -67,6 +68,7 @@ const AboutPage: React.FC = () => {
     reset: resetTransactionState,
   } = useSendTransaction();
   const { switchChain } = useSwitchChain();
+  const { actions } = useMiniAppContext(); // Added for Farcaster SDK actions
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [displayedTxHash, setDisplayedTxHash] = useState<string | null>(null);
@@ -304,7 +306,16 @@ const AboutPage: React.FC = () => {
                     href={`https://testnet.monvision.io/tx/${displayedTxHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-pink-400 hover:text-pink-300 underline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (actions) {
+                        actions.openUrl(`https://testnet.monvision.io/tx/${displayedTxHash}`);
+                      } else {
+                        // Fallback if actions are not available
+                        window.open(`https://testnet.monvision.io/tx/${displayedTxHash}`, '_blank');
+                      }
+                    }}
+                    className="text-pink-400 hover:text-pink-300 underline cursor-pointer"
                   >
                     {displayedTxHash}
                   </a>
