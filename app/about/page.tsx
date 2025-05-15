@@ -5,27 +5,34 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BackgroundGradientAnimation } from '@/components/ui/BackgroundGradientAnimation';
 // Import icons from react-icons
-import { SiFarcaster, SiX, SiGithub } from 'react-icons/si'; // Using fa6 for potentially newer icons
+import { SiFarcaster, SiX, SiGithub } from 'react-icons/si'; 
+import { FaTelegramPlane } from 'react-icons/fa'; // Added Telegram icon
 
 // Define your social links here - replace with your actual URLs and handles
 const socialLinks = [
   {
     name: 'Farcaster',
-    icon: <SiFarcaster size={20} />,
-    url: 'https://warpcast.com/gamerjagdish', // Replace with your Farcaster/Warpcast URL
-    handle: '@gamerjagdish' // Replace with your Farcaster handle
+    icon: <SiFarcaster size={18} />, // Slightly reduced icon size for consistency
+    url: 'https://warpcast.com/gamerjagdish', 
+    handle: 'gamerjagdish' 
   },
   {
     name: 'Twitter / X',
-    icon: <SiX size={20} />,
-    url: 'https:/x.com/jagdishhhhhhhh', // Replace with your Twitter URL
-    handle: '@jagdishhhhhhhh' // Replace with your Twitter handle
+    icon: <SiX size={18} />, // Slightly reduced icon size
+    url: 'https://x.com/jagdishhhhhhhh', 
+    handle: 'jagdishhhhhhhh' 
   },
   {
     name: 'GitHub',
-    icon: <SiGithub size={20} />,
-    url: 'https://github.com/GamerJagdish', // Replace with your GitHub URL
-    handle: 'GamerJagdish' // Replace with your GitHub username
+    icon: <SiGithub size={18} />, // Slightly reduced icon size
+    url: 'https://github.com/GamerJagdish', 
+    handle: 'GamerJagdish' 
+  },
+  {
+    name: 'Telegram',
+    icon: <FaTelegramPlane size={18} />, // Added Telegram icon
+    url: 'https://t.me/gamer_jagdish', // Replace with your Telegram URL/handle
+    handle: 'gamer_jagdish' // Replace with your Telegram handle
   }
 ];
 
@@ -66,19 +73,19 @@ const AboutPage: React.FC = () => {
               Gamer Jagdish Sharma
             </p>
             {/* Social Links Section */}
-            <div className="flex flex-col sm:flex-row justify-center items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <div className="flex flex-wrap justify-center items-center gap-2 sm:gap-3">
               {socialLinks.map((social) => (
                 <a 
                   key={social.name} 
                   href={social.url} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="flex flex-col items-center p-3 bg-slate-700/60 hover:bg-slate-600/80 rounded-lg transition-colors duration-150 ease-in-out w-full sm:w-auto min-w-[120px] shadow-md hover:shadow-lg"
+                  className="flex flex-col items-center p-2.5 bg-slate-700/60 hover:bg-slate-600/80 rounded-lg transition-colors duration-150 ease-in-out w-[calc(50%-0.5rem)] sm:w-auto min-w-[90px] sm:min-w-[110px] shadow-md hover:shadow-lg"
                 >
-                  <div className="flex items-center justify-center text-purple-400 mb-1">
+                  <div className="flex items-center justify-center text-purple-400 mb-0.5">
                     {social.icon}
                   </div>
-                  <span className="text-xs text-slate-300 font-medium">{social.handle}</span>
+                  <span className="text-[10px] sm:text-xs text-slate-300 font-medium w-full text-center px-1 break-all">{social.handle}</span>
                 </a>
               ))}
             </div>

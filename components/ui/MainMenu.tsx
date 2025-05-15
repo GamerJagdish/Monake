@@ -1,16 +1,34 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import dynamic from 'next/dynamic';
 // import Link from 'next/link'; // No longer directly using Link for About button
-import { useRouter } from 'next/navigation'; // Import useRouter
+ // Import useRouter
 import { BackgroundGradientAnimation } from './BackgroundGradientAnimation';
 import { Volume2, VolumeX } from 'lucide-react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { monadTestnet } from "viem/chains";
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
+
+// Define chain ID to name mapping
+const chainIdToName: Record<number, string> = {
+  [monadTestnet.id]: 'Monad Testnet',
+  1: 'Ethereum',
+  42161: 'Arbitrum',
+  8453: 'Base',
+  666666666: 'Degen',
+  100: 'Gnosis',
+  10: 'Optimism',
+  7777777: 'Zora',
+  137: 'Polygon',
+  11155111: 'Sepolia',
+  421614: 'Arbitrum Sepolia',
+  84532: 'Base Sepolia',
+  11155420: 'Optimism Sepolia',
+};
 
 const SnakeGame = dynamic(() => import('../SnakeGame'), {
   ssr: false,
@@ -30,10 +48,11 @@ const SnakeGame = dynamic(() => import('../SnakeGame'), {
 });
 
 const MainMenu: React.FC = () => {
+  const router = useRouter(); // Initialize useRouter
   const [showSnakeGame, setShowSnakeGame] = useState(false);
   const [isLoadingAbout, setIsLoadingAbout] = useState(false); // New state for About page loading
   const [isMuted, setIsMuted] = useState(false);
-  const router = useRouter(); // Initialize useRouter
+  
 
   const { address, isConnected, chainId } = useAccount();
   const { connect, connectors } = useConnect();
@@ -53,7 +72,11 @@ const MainMenu: React.FC = () => {
     // setTimeout(() => router.push('/about'), 100); // Optional delay
     router.push('/about');
   };
-
+  useEffect(() => {
+    if (router) { // You can add a check to be safe
+      router.prefetch('/about');
+    }
+  }, [router]);
   if (showSnakeGame) {
     return <SnakeGame onBackToMenu={() => setShowSnakeGame(false)} isMuted={isMuted} setIsMuted={setIsMuted} />;
   }
@@ -111,7 +134,18 @@ const MainMenu: React.FC = () => {
           </Button>
         </motion.div>
         <CardHeader className="pt-10 pb-4">
-          <CardTitle className="text-4xl sm:text-5xl font-bold text-center monake-title">🐍<br/>Monake</CardTitle>
+          {/* Wrapper for logo and title to position them inline */}
+          <div className="flex flex-row items-center justify-center"> {/* Changed to flex-row and added justify-center */}
+            <motion.img
+              src="/images/logo.png" 
+              alt="Monake Logo"
+              className="w-12 h-12" // Adjusted size and changed mb-4 to mr-3
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            />
+            <CardTitle className="text-4xl sm:text-5xl font-bold text-center monake-title">Monake</CardTitle>
+          </div>
           
           {farcasterUser && (
             <motion.div 
@@ -150,7 +184,7 @@ const MainMenu: React.FC = () => {
                   Connected: {address?.substring(0, 6)}...{address?.substring(address.length - 4)}
                 </p>
                 <p className="text-slate-400 text-xs">
-                  Chain: {chainId === monadTestnet.id ? 'Monad Testnet' : (chainId ? `ID ${chainId}`: 'N/A')}
+                  Chain: {chainId ? (chainIdToName[chainId] || `ID ${chainId}`) : 'N/A'}
                 </p>
                 {chainId !== monadTestnet.id && chainId && switchChain && (
                   <motion.button
@@ -182,7 +216,7 @@ const MainMenu: React.FC = () => {
                     console.error('No connectors found.');
                   }
                 }}
-                className="w-full py-3 text-lg sm:text-xl bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+                className="w-full py-3 text-lg sm:text-xl bg-indigo-500 hover:bg-indigo-600 mt-3 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
               >
                 Connect Wallet
               </motion.button>
@@ -222,3 +256,4 @@ const MainMenu: React.FC = () => {
 };
 
 export default MainMenu;
+

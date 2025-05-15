@@ -6,16 +6,16 @@ export async function GET() {
     // TODO: Add account association
     frame: {
       version: "1",
-      name: "MONAKE",
+      name: "Monake",
       iconUrl: `${APP_URL}/images/icon.png`,
       homeUrl: `${APP_URL}`,
       imageUrl: `${APP_URL}/images/feed.png`,
       screenshotUrls: [],
-      tags: ["monad", "farcaster", "miniapp", "template"],
-      primaryCategory: "developer-tools",
-      buttonTitle: "Play Now!",
+      tags: ["monad", "farcaster", "miniapp", "games", "snake", "snake game", "monad testnet"],
+      primaryCategory: "games",
+      buttonTitle: "Play now!",
       splashImageUrl: `${APP_URL}/images/splash.png`,
-      splashBackgroundColor: "#ffffff",
+      splashBackgroundColor: "#000000",
       webhookUrl: `${APP_URL}/api/webhook`,
     },
   };

@@ -13,7 +13,7 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: "Monake on Monad",
-  description: "Play Monake and climb up the leaderboard to earn $Mon",
+  description: "Play Monake and climb up the leaderboard to earn $MON",
 };
 
 export default function RootLayout({

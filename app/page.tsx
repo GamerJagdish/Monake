@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: "Monake on Monad",
     openGraph: {
       title: "Monake on Monad",
-      description: "Play Monake and climb up the leaderboard to earn $Mon",
+      description: "Play Monake and climb up the leaderboard to earn $MON",
     },
     other: {
       "fc:frame": JSON.stringify(frame),
