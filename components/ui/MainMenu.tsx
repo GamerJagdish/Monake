@@ -8,7 +8,8 @@ import dynamic from 'next/dynamic';
 // import Link from 'next/link'; // No longer directly using Link for About button
  // Import useRouter
 import { BackgroundGradientAnimation } from './BackgroundGradientAnimation';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, ArrowDown } from 'lucide-react';
+import { SiFarcaster} from 'react-icons/si'
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { monadTestnet } from "viem/chains";
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
@@ -52,6 +53,7 @@ const MainMenu: React.FC = () => {
   const [showSnakeGame, setShowSnakeGame] = useState(false);
   const [isLoadingAbout, setIsLoadingAbout] = useState(false); // New state for About page loading
   const [isMuted, setIsMuted] = useState(false);
+  const [showFarcasterTooltip, setShowFarcasterTooltip] = useState(false); // New state for Farcaster tooltip
   
 
   const { address, isConnected, chainId } = useAccount();
@@ -66,6 +68,14 @@ const MainMenu: React.FC = () => {
     // Keep native gestures disabled all the time
     sdk.actions.ready({ disableNativeGestures: true });
     // No need for cleanup since we want gestures disabled consistently
+    
+    // Show Farcaster tooltip on load
+    setShowFarcasterTooltip(true);
+    const timer = setTimeout(() => {
+      setShowFarcasterTooltip(false);
+    }, 5000); // Hide after 5 seconds
+
+    return () => clearTimeout(timer); // Cleanup timer on unmount
   }, []);
 
   const handlePlayClick = () => {
@@ -130,6 +140,56 @@ const MainMenu: React.FC = () => {
         className="w-full max-w-md bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 relative"
       >
         <motion.div
+          className="absolute top-3 left-3 z-20" // Changed to left-3
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+        >
+          {sdk.actions && (
+            <div className="relative">
+              {showFarcasterTooltip && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute left-10 top-2 -translate-x-1/2 text-purple-400 z-30"
+                >
+                  <ArrowDown className='rotate-90' size={20} />
+                </motion.div>
+              )}
+              <Button
+                onClick={async () => {
+                  try {
+                    await sdk.actions.addFrame();
+                  } catch (error: any) {
+                    if (error && error.message && error.message.includes("Cannot read properties of undefined (reading 'result')")) {
+                      alert("You need to run this in Farcaster");
+                    } else {
+                      console.error("Error adding frame:", error);
+                    }
+                  }
+                }}
+                variant="outline"
+                size="icon"
+                className="p-2 h-auto bg-gray-800/50 hover:bg-gray-50/80 border-gray-700 text-slate-200 rounded-full"
+              >
+                <SiFarcaster size={18} />
+              </Button>
+              {showFarcasterTooltip && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute top-0 left-20 -translate-x-1/2 mt-2 w-max bg-gray-900 text-white text-xs rounded-md px-2 py-1 shadow-lg z-30 whitespace-nowrap"
+                >
+                  Click here to add frame
+                </motion.div>
+              )}
+            </div>
+          )}
+        </motion.div>
+        <motion.div
           className="absolute top-3 right-3 z-20"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
@@ -138,7 +198,7 @@ const MainMenu: React.FC = () => {
             onClick={() => setIsMuted(!isMuted)} 
             variant="outline" 
             size="icon" 
-            className="p-2 h-auto bg-gray-800/50 hover:bg-gray-700/70 border-gray-700 text-slate-200 rounded-full"
+            className="p-2 h-auto bg-gray-800/50 hover:bg-gray-50/80 border-gray-700 text-slate-200 rounded-full"
           >
             {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
           </Button>
@@ -191,11 +251,9 @@ const MainMenu: React.FC = () => {
             {isConnected ? (
               <div className="space-y-2">
                 <p className="text-slate-300">
-                  Connected: {address?.substring(0, 6)}...{address?.substring(address.length - 4)}
+                  Connected: {address?.substring(0, 6)}...{address?.substring(address.length - 4)} ({chainId ? (chainIdToName[chainId] || `ID ${chainId}`) : 'N/A'})
                 </p>
-                <p className="text-slate-400 text-xs">
-                  Chain: {chainId ? (chainIdToName[chainId] || `ID ${chainId}`) : 'N/A'}
-                </p>
+               
                 {chainId !== monadTestnet.id && chainId && switchChain && (
                   <motion.button
                     whileHover={{ scale: 1.05, backgroundColor: "#4A5568" }}
@@ -259,27 +317,7 @@ const MainMenu: React.FC = () => {
           >
             About
           </motion.button>
-          {sdk.actions && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={async () => {
-                try {
-                  await sdk.actions.addFrame();
-                } catch (error: any) {
-                  if (error && error.message && error.message.includes("Cannot read properties of undefined (reading 'result')")) {
-                    alert("You need to run this in Farcaster");
-                  } else {
-                    // Handle other errors or re-throw if necessary
-                    console.error("Error adding frame:", error);
-                  }
-                }
-              }}
-              className="w-full py-3 text-lg sm:text-xl bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
-            >
-              Add to Farcaster
-            </motion.button>
-          )}
+          {/* Add to Farcaster button moved to top-left corner */}
         </CardContent>
       </motion.div>
     </div>

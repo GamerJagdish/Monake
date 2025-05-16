@@ -5,17 +5,19 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 // import { monadTestnet } from "viem/chains";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { useMotionValue, motion, animate } from "motion/react"; // Updated import
+import { useMotionValue, motion, animate, AnimatePresence } from "motion/react"; // Updated import, added AnimatePresence
 import { BackgroundGradientAnimation } from "@/components/ui/BackgroundGradientAnimation";
 import { Volume2, VolumeX } from 'lucide-react'; // Import icons
 import { sdk } from '@farcaster/frame-sdk';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context"; // Added import
 import { APP_URL } from "@/lib/constants"; // Added import
-const GRID_SIZE = 12; // Adjusted for a smaller grid, e.g., 12x12
+const GRID_WIDTH = 12;
+const GRID_HEIGHT = 17;
 const CELL_SIZE = 30; // Increased for larger cells and snake
 const GAME_BG_COLOR = "#2d3748"; // Tailwind gray-800
 const TEXT_COLOR = "#e2e8f0"; // Tailwind slate-200
 const GAME_SPEED = 200; // milliseconds, for smoother movement
+const SNAKE_INTERPOLATION_FACTOR = 0.25; // Added for smooth visual interpolation
 const SUPER_FOOD_SPAWN_CHANCE = 0.2; // 20% chance to spawn super food after normal food
 const SUPER_FOOD_BASE_DURATION = 50; // in game ticks (50 * 120ms = 6 seconds)
 
@@ -51,8 +53,8 @@ const getRandomPosition = (existingPositions: {x: number, y: number}[] = []) => 
   let newPos: Position; // Explicitly type newPos with the Position interface
   do {
     newPos = {
-      x: Math.floor(Math.random() * GRID_SIZE),
-      y: Math.floor(Math.random() * GRID_SIZE),
+      x: Math.floor(Math.random() * GRID_WIDTH),
+      y: Math.floor(Math.random() * GRID_HEIGHT),
     };
   } while (existingPositions.some(p => p.x === newPos.x && p.y === newPos.y));
   return newPos;
@@ -74,10 +76,11 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const { actions } = useMiniAppContext(); // Added to get Farcaster actions
   // Remove wagmi hook calls
   // const { address, isConnected, chainId } = useAccount();
-  // const { connect, connectors } = useConnect();
-  // const { disconnect } = useDisconnect();
-  // const { switchChain } = useSwitchChain();
-  const [snake, setSnake] = useState<Position[]>([{ x: Math.floor(GRID_SIZE / 2), y: Math.floor(GRID_SIZE / 2) }]);
+  const initialSnakePosition = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
+  const [snake, setSnake] = useState<Position[]>([initialSnakePosition]); // Logical snake
+  const [visualSnake, setVisualSnake] = useState<Position[]>([{...initialSnakePosition}]); // Visual snake for rendering
+  const logicalSnakeRef = useRef<Position[]>([{...initialSnakePosition}]);
+
   const [food, setFood] = useState(() => ({
     ...getRandomPosition(),
     type: getRandomFoodType(),
@@ -88,6 +91,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const directionRef = useRef<{ x: number; y: number }>({ x: 1, y: 0 });
   const directionQueueRef = useRef<{ x: number; y: number }[]>([]);
 
+  // Visual snake state and refs for smooth animation
+  const visualSnakeSegmentsRef = useRef<Position[]>([]); // Holds current visual pixel positions
+  const [renderedSnakeVisuals, setRenderedSnakeVisuals] = useState<Position[]>([]); // Triggers re-render
+  const animationFrameIdRef = useRef<number | null>(null);
+  const prevSnakeLengthRef = useRef(snake.length);
+
   // const [isMuted, setIsMuted] = useState(false); // Remove local state, use props instead
   const eatSoundRef = useRef<HTMLAudioElement | null>(null);
   const superEatSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -95,6 +104,11 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const gameOverSoundRef = useRef<HTMLAudioElement | null>(null); // Added for game over sound
   const [isGameStarting, setIsGameStarting] = useState(true); // Added for countdown phase
   const [countdownValue, setCountdownValue] = useState(3); // Added for countdown value
+
+  const [gameOver, setGameOver] = useState(false);
+  const [score, setScore] = useState(0);
+  const animatedScore = useMotionValue(0); // Use motion value for score
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     sdk.actions.ready({ disableNativeGestures: true });
@@ -104,11 +118,188 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     // };
   }, []);
 
+  useEffect(() => {
+    logicalSnakeRef.current = snake;
+  }, [snake]);
+
+  // useEffect for animation loop (visual snake)
+  useEffect(() => {
+    if (gameOver || isGameStarting) {
+      // When game is over, starting, or paused, visual snake should exactly match logical snake
+      setVisualSnake([...logicalSnakeRef.current]);
+      return;
+    }
+
+    let animationFrameId: number;
+
+    const animateVisualSnake = () => {
+      setVisualSnake(prevVisualSnake => {
+        const currentLogicalSnake = logicalSnakeRef.current;
+
+        if (currentLogicalSnake.length === 0) {
+          return []; // If logical snake is empty, visual snake is empty
+        }
+
+        let nextVisualSnake = [...prevVisualSnake];
+
+        // Adjust length of visualSnake to match logicalSnake
+        if (nextVisualSnake.length < currentLogicalSnake.length) {
+          const diff = currentLogicalSnake.length - nextVisualSnake.length;
+          for (let i = 0; i < diff; i++) {
+            // Add new visual segment at the position of the new logical head
+            nextVisualSnake.unshift({ ...currentLogicalSnake[0] });
+          }
+        } else if (nextVisualSnake.length > currentLogicalSnake.length) {
+          const diff = nextVisualSnake.length - currentLogicalSnake.length;
+          for (let i = 0; i < diff; i++) {
+            nextVisualSnake.pop(); // Remove from tail
+          }
+        }
+        
+        // If after adjustment, logical snake is empty but visual isn't (or vice-versa due to async state),
+        // ensure consistency before interpolation.
+        if (currentLogicalSnake.length === 0) return [];
+        if (nextVisualSnake.length === 0 && currentLogicalSnake.length > 0) {
+           nextVisualSnake = currentLogicalSnake.map(p => ({...p}));
+        }
+        if (nextVisualSnake.length === 0) return []; // Still empty, nothing to interpolate
+
+
+        const finalVisualSnake = nextVisualSnake.map((visualSegment, index) => {
+          const logicalSegment = currentLogicalSnake[index];
+          // This check should ideally not be needed if length syncing is perfect
+          if (!logicalSegment) return visualSegment; 
+
+          const targetX = logicalSegment.x;
+          const targetY = logicalSegment.y;
+
+          const currentX = visualSegment.x;
+          const currentY = visualSegment.y;
+
+          let newX = currentX + (targetX - currentX) * SNAKE_INTERPOLATION_FACTOR;
+          let newY = currentY + (targetY - currentY) * SNAKE_INTERPOLATION_FACTOR;
+
+          // Snap to target if very close to prevent micro-drifting
+          if (Math.abs(targetX - newX) < 0.001) newX = targetX;
+          if (Math.abs(targetY - newY) < 0.001) newY = targetY;
+
+          return { x: newX, y: newY }; // Removed Math.round
+        });
+        return finalVisualSnake;
+      });
+      animationFrameId = requestAnimationFrame(animateVisualSnake);
+    };
+
+    // Initial sync when effect (re)starts and game is active
+    setVisualSnake([...logicalSnakeRef.current]); 
+    animationFrameId = requestAnimationFrame(animateVisualSnake);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [gameOver, isGameStarting]); // Relies on logicalSnakeRef.current for the latest logical snake
+
   // Call restartGame on initial mount to ensure game starts correctly with sound
   useEffect(() => {
     restartGame();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array ensures this runs only once on mount
+
+  // Initialize and synchronize visualSnakeSegmentsRef with the logical snake state
+  useEffect(() => {
+    const currentLogicalSnake = snake;
+    const visualSegments = visualSnakeSegmentsRef.current;
+
+    // Adjust length of visualSegments to match currentLogicalSnake
+    if (currentLogicalSnake.length > visualSegments.length) { // Snake grew
+      const diff = currentLogicalSnake.length - visualSegments.length;
+      for (let i = 0; i < diff; i++) {
+        if (visualSegments.length > 0) {
+          visualSegments.push({ ...visualSegments[visualSegments.length - 1] });
+        } else if (currentLogicalSnake.length > 0) {
+          const firstLogicalSeg = currentLogicalSnake[visualSegments.length];
+          if (firstLogicalSeg) { // Ensure segment exists
+            visualSegments.push({ x: Math.round(firstLogicalSeg.x * CELL_SIZE), y: Math.round(firstLogicalSeg.y * CELL_SIZE) });
+          }
+        }
+      }
+    } else if (currentLogicalSnake.length < visualSegments.length) { // Snake shrank
+      visualSegments.length = currentLogicalSnake.length;
+    }
+
+    prevSnakeLengthRef.current = currentLogicalSnake.length;
+
+    if (gameOver || isGameStarting) {
+      setRenderedSnakeVisuals(currentLogicalSnake.map(p => ({ x: Math.round(p.x * CELL_SIZE), y: Math.round(p.y * CELL_SIZE) })));
+    } else if (!animationFrameIdRef.current && currentLogicalSnake.length > 0 && visualSegments.length > 0 && visualSegments.length === currentLogicalSnake.length) {
+      setRenderedSnakeVisuals([...visualSegments]);
+    }
+  }, [snake, CELL_SIZE, gameOver, isGameStarting]);
+
+  // Animation loop using requestAnimationFrame for smooth snake movement
+  useEffect(() => {
+    if (gameOver || isGameStarting || snake.length === 0) {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
+      // Snap to final logical positions when game is not running or snake is empty
+      setRenderedSnakeVisuals(snake.map(p => ({ x: Math.round(p.x * CELL_SIZE), y: Math.round(p.y * CELL_SIZE) })));
+      return;
+    }
+
+    const animateRender = () => {
+      if (visualSnakeSegmentsRef.current.length !== snake.length) {
+        // If lengths mismatch, the other useEffect should handle synchronization.
+        // For safety, request another frame and hope sync happens.
+        animationFrameIdRef.current = requestAnimationFrame(animateRender);
+        return;
+      }
+
+      const nextVisualSegments = visualSnakeSegmentsRef.current.map((visualSeg, index) => {
+        const logicalSeg = snake[index];
+        if (!logicalSeg) {
+          return visualSeg; // Should not happen if synced
+        }
+        const targetPixelX = Math.round(logicalSeg.x * CELL_SIZE);
+        const targetPixelY = Math.round(logicalSeg.y * CELL_SIZE);
+
+        const dx = targetPixelX - visualSeg.x;
+        const dy = targetPixelY - visualSeg.y;
+
+        let newX = visualSeg.x + dx * SNAKE_INTERPOLATION_FACTOR;
+        let newY = visualSeg.y + dy * SNAKE_INTERPOLATION_FACTOR;
+
+        const snapThreshold = 0.5; // pixels
+        if (Math.abs(dx) < snapThreshold && Math.abs(dy) < snapThreshold) {
+          newX = targetPixelX;
+          newY = targetPixelY;
+        }
+        
+        return { x: newX, y: newY }; // Removed Math.round
+      });
+      
+      visualSnakeSegmentsRef.current = nextVisualSegments;
+      setRenderedSnakeVisuals(nextVisualSegments.map(p => ({ x: p.x, y: p.y }))); // Removed Math.round
+
+      animationFrameIdRef.current = requestAnimationFrame(animateRender);
+    };
+
+    if (!animationFrameIdRef.current) {
+      if (visualSnakeSegmentsRef.current.length === 0 && snake.length > 0) {
+          visualSnakeSegmentsRef.current = snake.map(s => ({x: Math.round(s.x * CELL_SIZE), y: Math.round(s.y * CELL_SIZE)}));
+      }
+      if (visualSnakeSegmentsRef.current.length > 0 && visualSnakeSegmentsRef.current.length === snake.length) { 
+        setRenderedSnakeVisuals(visualSnakeSegmentsRef.current.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })));
+        animationFrameIdRef.current = requestAnimationFrame(animateRender);
+      }
+    }
+
+    return () => {
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
+    };
+  }, [snake, gameOver, isGameStarting, CELL_SIZE]);
 
   const spawnNewFood = useCallback(() => {
     const occupiedPositions = [...snake, food ? {x: food.x, y: food.y} : null, superFood ? {x: superFood.x, y: superFood.y} : null].filter(p => p !== null) as Position[];
@@ -133,10 +324,10 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     }
   }, [snake, food, superFood]);
 
-  const [gameOver, setGameOver] = useState(false);
-  const [score, setScore] = useState(0);
-  const animatedScore = useMotionValue(0); // Use motion value for score
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  // const [gameOver, setGameOver] = useState(false);
+  // const [score, setScore] = useState(0);
+  // const animatedScore = useMotionValue(0); // Use motion value for score
+  // const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   // Removed prevScore state as it's not needed with useMotionValue
 
   useEffect(() => {
@@ -146,17 +337,20 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       const controls = animate(animatedScore, score, {
         duration: 0.5, // Adjust duration as needed
         ease: "easeOut", // Optional: specify easing
+        onUpdate: (latest) => {
+          animatedScore.set(Math.round(latest));
+        },
         onComplete: () => {
-          // Optional: if you need to do something when animation completes normally
+          // Ensure final value is rounded and set
+          animatedScore.set(Math.round(score));
         }
       });
       return () => {
         controls.stop();
       };
     } else {
-      // When game is over, immediately set animatedScore to the final score
-      // This ensures that if the animatedScore is used elsewhere, it shows the final value.
-      animatedScore.set(score);
+      // When game is over, immediately set animatedScore to the final score (rounded)
+      animatedScore.set(Math.round(score));
     }
   }, [score, animatedScore, gameOver]);
 
@@ -306,20 +500,26 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         head.x += directionRef.current.x;
         head.y += directionRef.current.y;
 
+        let collisionDetected = false;
         // Wall collision
-        if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
-          setGameOver(true);
-          playSound('game_over');
-          return prevSnake;
+        if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT) {
+          collisionDetected = true;
         }
 
         // Self collision
-        for (let i = 1; i < newSnake.length; i++) {
-          if (newSnake[i].x === head.x && newSnake[i].y === head.y) {
-            setGameOver(true);
-            playSound('game_over');
-            return prevSnake;
+        if (!collisionDetected) { // Only check self-collision if no wall collision
+          for (let i = 1; i < newSnake.length; i++) {
+            if (newSnake[i].x === head.x && newSnake[i].y === head.y) {
+              collisionDetected = true;
+              break;
+            }
           }
+        }
+
+        if (collisionDetected) {
+          setGameOver(true);
+          playSound('game_over');
+          return prevSnake; // Return current snake state before collision to prevent moving into wall/self
         }
 
         newSnake.unshift(head);
@@ -350,7 +550,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       });
     }, GAME_SPEED); // Use GAME_SPEED for interval
     return () => clearInterval(gameLoop);
-  }, [snake, food, superFood, gameOver, spawnNewFood, trySpawnSuperFood, isGameStarting, playSound, setSnake, setFood, setSuperFood, setGameOver, animatedScore, score]); // Added relevant state setters and values that the loop depends on or modifies
+  }, [snake, food, superFood, gameOver, spawnNewFood, trySpawnSuperFood, isGameStarting, playSound, setSnake, setFood, setSuperFood, setGameOver, animatedScore, score]);
 
   // Game over sound is now played directly when gameOver is set within the game loop.
 
@@ -371,7 +571,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     playSound('start'); // Play start sound when game restarts and countdown begins
     setIsGameStarting(true);
     setCountdownValue(3);
-    const initialSnakePos = { x: Math.floor(GRID_SIZE / 2), y: Math.floor(GRID_SIZE / 2) };
+    const initialSnakePos = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
     setSnake([initialSnakePos]);
     setFood({
         ...getRandomPosition([initialSnakePos]),
@@ -389,118 +589,113 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   return (
     <div 
       className="flex flex-col items-center justify-center w-full h-full text-slate-200 p-2 relative"
-      style={{
-        backgroundColor: '#ad99ff',
-        backgroundImage: 'radial-gradient(at 71% 88%, hsla(198,92%,67%,1) 0px, transparent 50%), radial-gradient(at 69% 34%, hsla(281,80%,71%,1) 0px, transparent 50%), radial-gradient(at 83% 89%, hsla(205,61%,69%,1) 0px, transparent 50%), radial-gradient(at 23% 14%, hsla(234,83%,62%,1) 0px, transparent 50%), radial-gradient(at 18% 20%, hsla(302,94%,70%,1) 0px, transparent 50%), radial-gradient(at 1% 45%, hsla(196,99%,70%,1) 0px, transparent 50%), radial-gradient(at 34% 18%, hsla(316,72%,67%,1) 0px, transparent 50%)',
-      }}
+       style={{ 
+         backgroundColor: '#ad99ff', 
+         backgroundImage: 'radial-gradient(at 71% 88%, hsla(198,92%,67%,1) 0px, transparent 50%), radial-gradient(at 69% 34%, hsla(281,80%,71%,1) 0px, transparent 50%), radial-gradient(at 83% 89%, hsla(205,61%,69%,1) 0px, transparent 50%), radial-gradient(at 23% 14%, hsla(234,83%,62%,1) 0px, transparent 50%), radial-gradient(at 18% 20%, hsla(302,94%,70%,1) 0px, transparent 50%), radial-gradient(at 1% 45%, hsla(196,99%,70%,1) 0px, transparent 50%), radial-gradient(at 34% 18%, hsla(316,72%,67%,1) 0px, transparent 50%)', 
+       }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
-      {/* The BackgroundGradientAnimation component remains commented out or can be removed if preferred. */}
       {/* <BackgroundGradientAnimation 
         gradientBackgroundStart="rgb(25, 25, 36)" 
         gradientBackgroundEnd="rgb(15, 15, 25)"
         firstColor="18, 113, 255"
         secondColor="221, 74, 255"
         thirdColor="100, 220, 255"
-        fourthColor="0, 200, 50"
-        fifthColor="180, 180, 50"
+        fourthColor="200, 50, 50"
       /> */}
 
       <Card className="w-full max-w-sm bg-gray-800/80 border-gray-700 shadow-xl backdrop-blur-sm z-10">
-        <CardHeader className="flex flex-row items-center justify-center p-4"> 
-          <CardTitle 
-            className="text-4xl md:text-3xl font-bold flex-shrink-0 monake-title"
-            style={{
-              // Add textShadow for the glow effect
-              // The color of the shadow can be adjusted. Using a white glow for general visibility.
-              // You might want to experiment with colors that match the gradient if a white glow isn't ideal.
-              textShadow: '0 0 8px rgba(203, 113, 255, 0.5), 0 0 12px rgba(182, 36, 255, 0.3)' 
-            }}
-          >
-             Monake
-          </CardTitle>
-          <motion.div
-            className="absolute top-2 right-2 z-20" 
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Button 
-              onClick={() => setIsMuted(!isMuted)} 
-              variant="outline" 
-              size="icon" 
-              className="p-1.5 h-auto bg-gray-800/60 hover:bg-gray-700/80 border-gray-600 text-slate-200 rounded-full"
-            >
-              {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </Button>
-          </motion.div>
+        <CardHeader className="pt-3 pb-1 relative">
+          <div className="flex items-center w-full">
+            <div className="flex-initial "> {/* Title on the left */}
+              <CardTitle className="text-2xl font-bold monake-title">Monake</CardTitle>
+            </div>
+            <div className="flex-initial mx-auto"> {/* Score in the middle */}
+               <motion.div
+                 className="text-2xl font-bold text-yellow-400 tabular-nums" // Changed to yellow and kept tabular-nums
+                 key={score} // Add key to trigger re-render and animation on score change
+                 initial={{ scale: 1 }}
+                 animate={{ scale: [1, 1.2, 1] }} // Grow and shrink effect
+                 transition={{ duration: 0.3 }} // Animation duration
+               >
+                 {animatedScore.get()} {/* Display the score value */}
+               </motion.div>
+            </div>
+            <div className="flex-initial ml-auto"> {/* Button on the right */}
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <Button
+                  onClick={() => setIsMuted(!isMuted)}
+                  variant="outline"
+                  size="icon"
+                  className="p-2 h-auto bg-gray-800/50 hover:bg-gray-50/80 border-gray-700 text-slate-200 rounded-full"
+                  aria-label={isMuted ? "Unmute" : "Mute"}
+                >
+                  {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                </Button>
+              </motion.div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent 
-          className="flex flex-col items-center space-y-2 p-2"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          className="flex flex-col items-center space-y-0 px-2 py-1"
         >
-          {/* Score Display - Centered with new layout */}
-          <div className="flex flex-col items-center w-full mb-2"> {/* Centering container */}
-            <p 
-              className="text-3xl font-bold text-cyan-400 mb-1"
-              style={{
-                textShadow: '0 0 5px rgba(0, 255, 255, 0.5), 0 0 10px rgba(0, 255, 255, 0.3)',
-              }} /* Bright cyan color with a subtle glow effect */
-            >
-              Score
-            </p>
-            <motion.span 
-              className="text-4xl font-bold text-slate-100" /* Larger, bold, bright color for score value */
-            >
-              {/* Display animated score, or final score if game is over */}
-              {typeof animatedScore.get() === 'number' ? Math.round(animatedScore.get()) : 0}
-            </motion.span>
-          </div>
+          {/* Score Display Removed */}
+
+          {/* Game Grid Container */}
           <div
             className="border border-gray-600 shadow-inner bg-gray-800 overflow-hidden"
             style={{
-              width: GRID_SIZE * CELL_SIZE,
-              height: GRID_SIZE * CELL_SIZE,
+              width: GRID_WIDTH * CELL_SIZE,
+              height: GRID_HEIGHT * CELL_SIZE,
               backgroundColor: GAME_BG_COLOR,
               position: 'relative', // Crucial for absolute positioning of children
             }}
           >
-            {/* Grid Lines */}
-            {Array.from({ length: GRID_SIZE }).map((_, i) => (
-              <React.Fragment key={`grid-line-${i}`}>
-                {i > 0 && (
-                  <>
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: i * CELL_SIZE,
-                        top: 0,
-                        width: 1,
-                        height: '100%',
-                        backgroundColor: 'rgba(255, 255, 255, 0.03)', // Very subtle white
-                        pointerEvents: 'none',
-                      }}
-                    />
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: i * CELL_SIZE,
-                        width: '100%',
-                        height: 1,
-                        backgroundColor: 'rgba(255, 255, 255, 0.03)', // Very subtle white
-                        pointerEvents: 'none',
-                      }}
-                    />
-                  </>
-                )}
+            {/* Vertical Grid Lines */}
+            {Array.from({ length: GRID_WIDTH }).map((_, colIndex) => (
+              colIndex > 0 && (
+                <div
+                  key={`vline-${colIndex}`}
+                  style={{
+                    position: 'absolute',
+                    left: colIndex * CELL_SIZE,
+                    top: 0,
+                    width: 1,
+                    height: '100%', 
+                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              )
+            ))}
+            {/* Horizontal Grid Lines */}
+            {Array.from({ length: GRID_HEIGHT }).map((_, rowIndex) => (
+              rowIndex > 0 && (
+                <div
+                  key={`hline-${rowIndex}`}
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: rowIndex * CELL_SIZE,
+                    width: '100%',
+                    height: 1,
+                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                    pointerEvents: 'none',
+                  }}
+                />
+              )
+            ))}
+            {/* Countdown Timer - Rendered once over the grid */}
             {isGameStarting && countdownValue > 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 rounded-md z-20">
                 <p className="text-6xl font-bold text-white animate-ping" style={{ animationDuration: '1s' }}>{countdownValue}</p>
               </div>
             )}
-              </React.Fragment>
-            ))}
             {/* Snake rendering */}
             {snake.map((segment, index) => {
               const isHead = index === 0;
@@ -651,8 +846,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
           </div>
         </CardContent>
         
-        <CardFooter className="flex justify-center pt-4">
-            <p className="text-xs text-gray-400">Use arrow keys or swipe to move</p>
+        <CardFooter className="flex justify-center pt-1 pb-3">
+            <p className="text-xs text-gray-400 ">Use arrow keys or swipe to move</p>
         </CardFooter>
         
       </Card>

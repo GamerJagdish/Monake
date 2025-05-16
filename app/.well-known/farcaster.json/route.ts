@@ -12,12 +12,12 @@ export async function GET() {
     
     frame: {
       version: "1",
-      name: "Monake",
+      name: "Monad Snake - Monake",
       iconUrl: `${APP_URL}/images/icon.png`,
       homeUrl: `${APP_URL}`,
       imageUrl: `${APP_URL}/images/feed.png`,
       screenshotUrls: [],
-      tags: ["monad", "farcaster", "miniapp", "game", "snake"],
+      tags: ["monad", "monake", "miniapp", "game", "snake"],
       primaryCategory: "games",
       buttonTitle: "Play now!",
       splashImageUrl: `${APP_URL}/images/splash.png`,
