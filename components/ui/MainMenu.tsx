@@ -101,26 +101,7 @@ const MainMenu: React.FC = () => {
     }} isMuted={isMuted} setIsMuted={setIsMuted} />;
   }
 
-  if (isLoadingAbout) { // Show loading screen for About page
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <BackgroundGradientAnimation 
-          gradientBackgroundStart="rgb(25, 25, 36)" 
-          gradientBackgroundEnd="rgb(15, 15, 25)"
-          firstColor="18, 113, 255"
-          secondColor="221, 74, 255"
-          thirdColor="100, 220, 255"
-          fourthColor="200, 50, 50"
-          fifthColor="180, 180, 50"
-        />
-        <div className="absolute z-50 inset-0 flex items-center justify-center text-white font-bold px-4 pointer-events-none text-3xl text-center md:text-4xl lg:text-7xl">
-          <p className="bg-clip-text text-transparent drop-shadow-2xl bg-gradient-to-b from-white/80 to-white/20">
-            Crawling🐍...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // isLoadingAbout will now be handled inline to show loading text over the background
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-4 relative">
@@ -133,12 +114,20 @@ const MainMenu: React.FC = () => {
         fourthColor="200, 50, 50"
         fifthColor="180, 180, 50"
       />
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 relative"
-      >
+      {isLoadingAbout ? (
+        <div className="absolute z-50 inset-0 flex items-center justify-center text-white font-bold px-4 pointer-events-none text-3xl text-center md:text-4xl lg:text-7xl">
+          <p className="bg-clip-text text-transparent drop-shadow-2xl bg-gradient-to-b from-white/80 to-white/20">
+            Crawling🐍...
+          </p>
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 relative"
+        >
+      
         <motion.div
           className="absolute top-3 left-3 z-20" // Changed to left-3
           whileHover={{ scale: 1.1 }}
@@ -320,6 +309,7 @@ const MainMenu: React.FC = () => {
           {/* Add to Farcaster button moved to top-left corner */}
         </CardContent>
       </motion.div>
+      )}
     </div>
   );
 };

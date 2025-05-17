@@ -389,7 +389,7 @@ const AboutPage: React.FC = () => {
                     disabled={isSendingTransaction || !isConnected || chainId !== monadTestnet.id || !!displayedTxHash || parseFloat(donationAmount) <= 0}
                     className="flex-1 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-md font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isSendingTransaction ? 'Sending...' : 'Submit Donation'}
+                    {isSendingTransaction ? 'Sending...' : 'Send Love'}
                   </button>
                 </div>
               </>
