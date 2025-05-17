@@ -89,7 +89,7 @@ import {
           await sendFrameNotification({
             fid,
             title: `Welcome to ${appName}`,
-            body: `Make onchain payments simple and seamless with this Farcaster/Coinbase Miniapp, or directly from the browser. Start creating your own 100% FREE payment links today!`,
+            body: `Thank you for adding ${appName} to your frame`,
           });
         } else {
           await deleteUserNotificationDetails(fid);

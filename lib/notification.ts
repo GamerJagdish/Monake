@@ -2,7 +2,7 @@ import type { FrameNotificationDetails } from "@farcaster/frame-sdk";
 import { getRedis } from "./redis";
 
 const notificationServiceKey =
-  process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME ?? "minikit";
+  process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME ?? "Monake";
 
 function getUserNotificationDetailsKey(fid: number): string {
   return `${notificationServiceKey}:user:${fid}`;
