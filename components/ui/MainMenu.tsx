@@ -53,7 +53,6 @@ const MainMenu: React.FC = () => {
   const [showSnakeGame, setShowSnakeGame] = useState(false);
   const [isLoadingAbout, setIsLoadingAbout] = useState(false); // New state for About page loading
   const [isMuted, setIsMuted] = useState(false);
-  const [showFarcasterTooltip, setShowFarcasterTooltip] = useState(false); // New state for Farcaster tooltip
   
 
   const { address, isConnected, chainId } = useAccount();
@@ -68,14 +67,21 @@ const MainMenu: React.FC = () => {
     // Keep native gestures disabled all the time
     sdk.actions.ready({ disableNativeGestures: true });
     // No need for cleanup since we want gestures disabled consistently
-    
-    // Show Farcaster tooltip on load
-    setShowFarcasterTooltip(true);
-    const timer = setTimeout(() => {
-      setShowFarcasterTooltip(false);
-    }, 5000); // Hide after 5 seconds
 
-    return () => clearTimeout(timer); // Cleanup timer on unmount
+    // Automatically add frame on load
+    const addFrameOnLoad = async () => {
+      try {
+        await sdk.actions.addFrame();
+      } catch (error: any) {
+        if (error && error.message && error.message.includes("Cannot read properties of undefined (reading 'result')")) {
+          // It's okay to not show an alert here if the user isn't explicitly clicking a button.
+          // console.log("Frame SDK not available or not in Farcaster environment.");
+        } else {
+          console.error("Error adding frame automatically:", error);
+        }
+      }
+    };
+    addFrameOnLoad();
   }, []);
 
   const handlePlayClick = () => {
@@ -128,56 +134,6 @@ const MainMenu: React.FC = () => {
           className="w-full max-w-md bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 relative"
         >
       
-        <motion.div
-          className="absolute top-3 left-3 z-20" // Changed to left-3
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          {sdk.actions && (
-            <div className="relative">
-              {showFarcasterTooltip && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3 }}
-                  className="absolute left-10 top-2 -translate-x-1/2 text-purple-400 z-30"
-                >
-                  <ArrowDown className='rotate-90' size={20} />
-                </motion.div>
-              )}
-              <Button
-                onClick={async () => {
-                  try {
-                    await sdk.actions.addFrame();
-                  } catch (error: any) {
-                    if (error && error.message && error.message.includes("Cannot read properties of undefined (reading 'result')")) {
-                      alert("You need to run this in Farcaster");
-                    } else {
-                      console.error("Error adding frame:", error);
-                    }
-                  }
-                }}
-                variant="outline"
-                size="icon"
-                className="p-2 h-auto bg-gray-800/50 hover:bg-gray-50/80 border-gray-700 text-slate-200 rounded-full"
-              >
-                <SiFarcaster size={18} />
-              </Button>
-              {showFarcasterTooltip && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  transition={{ duration: 0.3 }}
-                  className="absolute top-0 left-20 -translate-x-1/2 mt-2 w-max bg-gray-900 text-white text-xs rounded-md px-2 py-1 shadow-lg z-30 whitespace-nowrap"
-                >
-                  Click here to add frame
-                </motion.div>
-              )}
-            </div>
-          )}
-        </motion.div>
         <motion.div
           className="absolute top-3 right-3 z-20"
           whileHover={{ scale: 1.1 }}

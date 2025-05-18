@@ -1,8 +1,11 @@
 import type { FrameNotificationDetails } from "@farcaster/frame-sdk";
 import { getRedis } from "./redis";
 
-const notificationServiceKey =
+let notificationServiceKey =
   process.env.NEXT_PUBLIC_ONCHAINKIT_PROJECT_NAME ?? "Monake";
+
+// Sanitize the key to remove problematic characters like quotes and semicolons
+notificationServiceKey = notificationServiceKey.replace(/["';]/g, "");
 
 function getUserNotificationDetailsKey(fid: number): string {
   return `${notificationServiceKey}:user:${fid}`;
