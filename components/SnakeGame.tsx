@@ -1162,9 +1162,10 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   };
 
   const handleTouchMove = (event: React.TouchEvent) => {
-    // Prevent scrolling while swiping
+    // Prevent scrolling while swiping.
+    // touchAction: 'none' on the div should handle this.
     if (touchStart) {
-      event.preventDefault();
+      // event.preventDefault(); // Removed to avoid passive listener error, as touchAction: 'none' should suffice
     }
   };
 

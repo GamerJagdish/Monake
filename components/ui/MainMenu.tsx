@@ -519,6 +519,7 @@ const MainMenu: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [entryFeeAmount, setEntryFeeAmount] = useState<bigint>(parseEther('0.01'));
   const [hasPaidForToday, setHasPaidForToday] = useState<boolean>(false);
+  const [playerAllTimeHighScore, setPlayerAllTimeHighScore] = useState<bigint | null>(null);
   const { writeContract, isPending: isPayingFee, data: payFeeData, reset: resetPayFee, error: payFeeError } = useWriteContract();
   
 
@@ -562,6 +563,23 @@ const MainMenu: React.FC = () => {
       setHasPaidForToday(fetchedHasPaid);
     }
   }, [fetchedHasPaid]);
+
+  // Fetch player's all-time high score
+  const { data: fetchedPlayerAllTimeHighScore, isLoading: isLoadingPlayerAllTimeHighScore } = useReadContract({
+    abi: LeaderboardABI,
+    address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+    functionName: 'getPlayerAllTimeHighScore',
+    args: [address as `0x${string}`],
+    query: {
+      enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    }
+  });
+
+  useEffect(() => {
+    if (fetchedPlayerAllTimeHighScore !== undefined) {
+      setPlayerAllTimeHighScore(fetchedPlayerAllTimeHighScore as bigint);
+    }
+  }, [fetchedPlayerAllTimeHighScore]);
 
   useEffect(() => {
     if (payFeeData) { // Transaction sent
@@ -732,29 +750,34 @@ const MainMenu: React.FC = () => {
             />
             <CardTitle className="text-4xl sm:text-5xl font-bold text-center monake-title">Monake</CardTitle>
           </div>
-          
+
           {farcasterUser && (
-            <motion.div 
-              className="mt-6 mb-4 text-center flex flex-col items-center"
-              initial={{ opacity: 0, y: 10 }}
+            <motion.div
+              className="flex flex-row items-center w-full max-w-sm p-3 bg-gray-700/60 rounded-lg shadow-lg mb-4 border border-gray-600/50"
+              initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
             >
               {farcasterUser.pfpUrl && (
                 <motion.img
                   src={farcasterUser.pfpUrl}
                   alt={`${farcasterUser.displayName}'s profile picture`}
-                  className="w-16 h-16 rounded-full border-2 border-purple-400 shadow-lg mb-2"
-                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  className="w-16 h-16 rounded-full mr-4 border-2 border-purple-500 shadow-md flex-shrink-0"
+                  whileHover={{ scale: 1.05, boxShadow: "0px 0px 15px rgba(192, 132, 252, 0.5)" }}
                   transition={{ type: "spring", stiffness: 300 }}
                 />
               )}
-              <p className="text-lg font-semibold text-purple-300">
-                Welcome, {farcasterUser.displayName}!
-              </p>
-              <p className="text-xs text-slate-400">
-                @{farcasterUser.username}
-              </p>
+              <div className="flex flex-col text-left overflow-hidden">
+                <p className="text-lg font-semibold text-purple-300 truncate" title={farcasterUser.displayName}>
+                  {farcasterUser.displayName}
+                </p>
+                <p className="text-sm text-slate-400 truncate" title={`@${farcasterUser.username}`}>
+                  @{farcasterUser.username}
+                </p>
+                <p className="text-sm text-yellow-400 mt-1 font-medium">
+                  🏆 High Score: {playerAllTimeHighScore !== null ? playerAllTimeHighScore.toString() : (isLoadingPlayerAllTimeHighScore ? '...' : 'N/A')}
+                </p>
+              </div>
             </motion.div>
           )}
 
