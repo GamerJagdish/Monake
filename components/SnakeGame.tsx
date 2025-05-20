@@ -755,11 +755,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const directionRef = useRef<{ x: number; y: number }>({ x: 1, y: 0 });
   const directionQueueRef = useRef<{ x: number; y: number }[]>([]);
 
-  // Visual snake state and refs for smooth animation
-  const visualSnakeSegmentsRef = useRef<Position[]>([]); // Holds current visual pixel positions
-  const [renderedSnakeVisuals, setRenderedSnakeVisuals] = useState<Position[]>([]); // Triggers re-render
-  const animationFrameIdRef = useRef<number | null>(null);
-  const prevSnakeLengthRef = useRef(snake.length);
+
 
   // const [isMuted, setIsMuted] = useState(false); // Remove local state, use props instead
   const eatSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -929,103 +925,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array ensures this runs only once on mount
 
-  // Initialize and synchronize visualSnakeSegmentsRef with the logical snake state
-  useEffect(() => {
-    const currentLogicalSnake = snake;
-    const visualSegments = visualSnakeSegmentsRef.current;
 
-    // Adjust length of visualSegments to match currentLogicalSnake
-    if (currentLogicalSnake.length > visualSegments.length) { // Snake grew
-      const diff = currentLogicalSnake.length - visualSegments.length;
-      for (let i = 0; i < diff; i++) {
-        if (visualSegments.length > 0) {
-          visualSegments.push({ ...visualSegments[visualSegments.length - 1] });
-        } else if (currentLogicalSnake.length > 0) {
-          const firstLogicalSeg = currentLogicalSnake[visualSegments.length];
-          if (firstLogicalSeg) { // Ensure segment exists
-            visualSegments.push({ x: Math.round(firstLogicalSeg.x * CELL_SIZE), y: Math.round(firstLogicalSeg.y * CELL_SIZE) });
-          }
-        }
-      }
-    } else if (currentLogicalSnake.length < visualSegments.length) { // Snake shrank
-      visualSegments.length = currentLogicalSnake.length;
-    }
 
-    prevSnakeLengthRef.current = currentLogicalSnake.length;
 
-    if (gameOver || isGameStarting) {
-      setRenderedSnakeVisuals(currentLogicalSnake.map(p => ({ x: Math.round(p.x * CELL_SIZE), y: Math.round(p.y * CELL_SIZE) })));
-    } else if (!animationFrameIdRef.current && currentLogicalSnake.length > 0 && visualSegments.length > 0 && visualSegments.length === currentLogicalSnake.length) {
-      setRenderedSnakeVisuals([...visualSegments]);
-    }
-  }, [snake, CELL_SIZE, gameOver, isGameStarting]);
-
-  // Animation loop using requestAnimationFrame for smooth snake movement
-  useEffect(() => {
-    if (gameOver || isGameStarting || snake.length === 0) {
-      if (animationFrameIdRef.current) {
-        cancelAnimationFrame(animationFrameIdRef.current);
-        animationFrameIdRef.current = null;
-      }
-      // Snap to final logical positions when game is not running or snake is empty
-      setRenderedSnakeVisuals(snake.map(p => ({ x: Math.round(p.x * CELL_SIZE), y: Math.round(p.y * CELL_SIZE) })));
-      return;
-    }
-
-    const animateRender = () => {
-      if (visualSnakeSegmentsRef.current.length !== snake.length) {
-        // If lengths mismatch, the other useEffect should handle synchronization.
-        // For safety, request another frame and hope sync happens.
-        animationFrameIdRef.current = requestAnimationFrame(animateRender);
-        return;
-      }
-
-      const nextVisualSegments = visualSnakeSegmentsRef.current.map((visualSeg, index) => {
-        const logicalSeg = snake[index];
-        if (!logicalSeg) {
-          return visualSeg; // Should not happen if synced
-        }
-        const targetPixelX = Math.round(logicalSeg.x * CELL_SIZE);
-        const targetPixelY = Math.round(logicalSeg.y * CELL_SIZE);
-
-        const dx = targetPixelX - visualSeg.x;
-        const dy = targetPixelY - visualSeg.y;
-
-        let newX = visualSeg.x + dx * SNAKE_INTERPOLATION_FACTOR;
-        let newY = visualSeg.y + dy * SNAKE_INTERPOLATION_FACTOR;
-
-        const snapThreshold = 0.5; // pixels
-        if (Math.abs(dx) < snapThreshold && Math.abs(dy) < snapThreshold) {
-          newX = targetPixelX;
-          newY = targetPixelY;
-        }
-        
-        return { x: newX, y: newY }; // Removed Math.round
-      });
-      
-      visualSnakeSegmentsRef.current = nextVisualSegments;
-      setRenderedSnakeVisuals(nextVisualSegments.map(p => ({ x: p.x, y: p.y }))); // Removed Math.round
-
-      animationFrameIdRef.current = requestAnimationFrame(animateRender);
-    };
-
-    if (!animationFrameIdRef.current) {
-      if (visualSnakeSegmentsRef.current.length === 0 && snake.length > 0) {
-          visualSnakeSegmentsRef.current = snake.map(s => ({x: Math.round(s.x * CELL_SIZE), y: Math.round(s.y * CELL_SIZE)}));
-      }
-      if (visualSnakeSegmentsRef.current.length > 0 && visualSnakeSegmentsRef.current.length === snake.length) { 
-        setRenderedSnakeVisuals(visualSnakeSegmentsRef.current.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })));
-        animationFrameIdRef.current = requestAnimationFrame(animateRender);
-      }
-    }
-
-    return () => {
-      if (animationFrameIdRef.current) {
-        cancelAnimationFrame(animationFrameIdRef.current);
-        animationFrameIdRef.current = null;
-      }
-    };
-  }, [snake, gameOver, isGameStarting, CELL_SIZE]);
 
   const spawnNewFood = useCallback(() => {
     const occupiedPositions = [...snake, food ? {x: food.x, y: food.y} : null, superFood ? {x: superFood.x, y: superFood.y} : null].filter(p => p !== null) as Position[];

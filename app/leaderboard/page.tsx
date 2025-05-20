@@ -617,8 +617,6 @@ const LeaderboardPage: React.FC = () => {
         args: [currentDay],
       }) as `0x${string}`[];
 
-      console.log('[fetchLeaderboard] Daily participants:', dailyParticipants);
-
       // Get scores for each participant
       const playerScoresPromises = dailyParticipants.map(async (player) => {
         const score = await publicClient.readContract({
@@ -630,7 +628,6 @@ const LeaderboardPage: React.FC = () => {
       });
 
       const playerScores = await Promise.all(playerScoresPromises);
-      console.log('[fetchLeaderboard] Player scores:', playerScores);
 
       // Format and sort the leaderboard
       const formattedLeaderboard: LeaderboardEntry[] = playerScores
@@ -641,7 +638,6 @@ const LeaderboardPage: React.FC = () => {
         .sort((a, b) => b.score - a.score)
         .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
-      console.log('[fetchLeaderboard] Formatted leaderboard:', formattedLeaderboard);
       setLeaderboardData(formattedLeaderboard);
       console.log('[fetchLeaderboard] Leaderboard data state updated.');
 
@@ -827,7 +823,7 @@ const LeaderboardPage: React.FC = () => {
                 {leaderboardData.map((entry) => (
                   <li key={entry.rank} className="flex justify-between items-center bg-gray-700/70 p-3 rounded-lg shadow">
                     <span className="font-medium text-slate-300">#{entry.rank}</span>
-                    <span className="text-purple-300 truncate w-1/2 text-sm sm:text-base px-2">{entry.player}</span>
+                    <span className="text-purple-300 truncate w-1/2 text-sm sm:text-base px-2">{entry.player?.slice(0, 6)}...{entry.player?.slice(-4)}</span>
                     <span className="font-bold text-yellow-400">{entry.score} pts</span>
                   </li>
                 ))}
