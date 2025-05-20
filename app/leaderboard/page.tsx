@@ -545,11 +545,11 @@ const LeaderboardPage: React.FC = () => {
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'currentDayTimestamp',
     chainId: monadTestnet.id, // Explicitly set chainId
-    enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
     query: {
-        cacheTime: 5000, // Correctly nested TanStack Query option
-        refetchInterval: 15000 // Refetch every 15 seconds as an example
-    },
+      enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+      gcTime: 5000,
+      refetchInterval: 15000,
+    }
   });
 
   useEffect(() => {
@@ -581,7 +581,9 @@ const LeaderboardPage: React.FC = () => {
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'hasPlayerPaidToday',
     args: [address as `0x${string}`],
-    enabled: !!address && isConnected,
+    query: {
+      enabled: !!address && isConnected,
+    }
   });
 
   useEffect(() => {

@@ -554,8 +554,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   // Hook to wait for the transaction receipt for fee payment
   const { data: feeTxReceipt, isLoading: isLoadingFeeTxReceipt, isSuccess: isFeeTxSuccess } = useWaitForTransactionReceipt({
     hash: payFeeDataHash,
-    enabled: !!payFeeDataHash, // Only enable when there's a hash
     query: {
+      enabled: !!payFeeDataHash, // Only enable when there's a hash
       // Custom selector to determine success based on receipt status
       // This ensures isFeeTxSuccess is true only if the transaction was actually successful on-chain.
       select: (receipt) => receipt.status === 'success',
@@ -566,8 +566,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   // Hook to wait for the transaction receipt for score submission
   const { data: scoreTxReceipt, isLoading: isLoadingScoreTxReceipt, isSuccess: isScoreTxSuccess } = useWaitForTransactionReceipt({
     hash: submitScoreTxHash,
-    enabled: !!submitScoreTxHash, // Only enable when there's a hash
     query: {
+      enabled: !!submitScoreTxHash, // Only enable when there's a hash
       select: (receipt) => receipt.status === 'success',
     },
     confirmations: 1, // Wait for 1 confirmation
@@ -579,7 +579,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'hasPlayerPaidToday',
     args: [address as `0x${string}`],
+    query: {
     enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    }
   });
 
   // Fetch entry fee amount
@@ -587,7 +589,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     abi: LeaderboardABI,
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'entryFee',
+    query: {
     enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    }
   });
 
   useEffect(() => {

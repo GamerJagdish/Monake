@@ -535,7 +535,9 @@ const MainMenu: React.FC = () => {
     abi: LeaderboardABI,
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'entryFee',
+    query: {
     enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    }
   });
 
   useEffect(() => {
@@ -550,7 +552,9 @@ const MainMenu: React.FC = () => {
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'hasPlayerPaidToday',
     args: [address as `0x${string}`],
+    query: {
     enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    }
   });
 
   useEffect(() => {
