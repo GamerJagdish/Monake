@@ -579,7 +579,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'hasPlayerPaidToday',
     args: [address as `0x${string}`],
-    enabled: !!address && isConnected && LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
   });
 
   // Fetch entry fee amount
@@ -587,7 +587,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     abi: LeaderboardABI,
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'entryFee',
-    enabled: LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
   });
 
   useEffect(() => {
@@ -796,7 +796,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       // Re-check chainId after attempting switch, as it might be needed if the component doesn't re-render fast enough
       // For simplicity, we assume the gameOver useEffect or next button click will handle the updated state.
     }
-    if (LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+    if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
       setScoreSubmissionMessage('Leaderboard contract address is not set.');
       setShowScoreSubmissionStatus(true);
       return;
@@ -1337,7 +1337,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
          return;
       }
     }
-    if (LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+    if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
         setScoreSubmissionMessage('Leaderboard contract not configured.');
         setShowScoreSubmissionStatus(true);
         return;
@@ -1396,7 +1396,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         // Button will be hidden or replaced by a success message.
       } else if (isLoadingHasPaid) {
         setScoreSubmissionMessage('Checking payment status...');
-      } else if (LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+      } else if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
         setScoreSubmissionMessage('Leaderboard not configured. Scores cannot be saved.');
       } else if (!isConnected || !address) {
         setScoreSubmissionMessage('Connect wallet to save your score.');
@@ -1692,7 +1692,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                   <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
 
                   {/* Score Submission / Payment Button Logic */} 
-                  {score > 0 && LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE' && isConnected && address && chainId === monadTestnet.id && (
+                  {score > 0 && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE' && isConnected && address && chainId === monadTestnet.id && (
                     hasPaidForTodayForScoreSubmission ? (
                       isScoreTxSuccess || hasSubmittedScore ? (
                         <div className="text-center w-3/4 my-2">
@@ -1739,7 +1739,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                     </p>
                   )}
                   {/* Fallback message if contract address is missing and no other message is active */}
-                  {LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
+                  {(LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
                      <p className="text-center text-xs text-red-300 p-2 my-2 bg-red-700/50 rounded-md w-3/4">
                       Leaderboard contract not configured. Scores will not be saved.
                     </p>
@@ -1751,7 +1751,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                       {scoreSubmissionMessage}
                     </p>
                   )} */}
-                  {/* {LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
+                  {/* {(LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
                      <p className="text-center text-xs text-red-300 p-2 my-2 bg-red-700/50 rounded-md w-3/4">
                       Leaderboard contract not configured. Scores will not be saved.
                     </p>

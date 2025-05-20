@@ -545,7 +545,7 @@ const LeaderboardPage: React.FC = () => {
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'currentDayTimestamp',
     chainId: monadTestnet.id, // Explicitly set chainId
-    enabled: LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
     query: {
         cacheTime: 5000, // Correctly nested TanStack Query option
         refetchInterval: 15000 // Refetch every 15 seconds as an example
@@ -592,7 +592,7 @@ const LeaderboardPage: React.FC = () => {
 
   const fetchLeaderboard = useCallback(async () => {
     console.log('[fetchLeaderboard] Called. Current state: publicClient available -', !!publicClient, ', currentDay -', currentDay, ', contract address -', LEADERBOARD_CONTRACT_ADDRESS);
-    if (!publicClient || currentDay === null || LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+    if (!publicClient || currentDay === null || (LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
       console.error('[fetchLeaderboard] Aborting: Crucial data missing. publicClient:', !!publicClient, 'currentDay:', currentDay, 'contractAddress:', LEADERBOARD_CONTRACT_ADDRESS);
       setIsLoadingData(false); // Ensure loading is false if we can't proceed
       return;
@@ -661,7 +661,7 @@ const LeaderboardPage: React.FC = () => {
       refetchHasPaid();
       console.log('[fetchLeaderboard] refetchHasPaid called.');
     }
-    if (LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE') {
+    if ((LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE') {
       refetchCurrentDay();
       console.log('[fetchLeaderboard] refetchCurrentDay called.');
     }
@@ -705,7 +705,7 @@ const LeaderboardPage: React.FC = () => {
 
   // Initial fetch if not covered by above
   useEffect(() => {
-    if (LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE') {
+    if ((LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE') {
         refetchCurrentDay(); // Initial fetch for current day
     }
   }, [refetchCurrentDay]);
@@ -729,7 +729,7 @@ const LeaderboardPage: React.FC = () => {
       alert('Please switch to Monad Testnet and try again.');
       return;
     }
-    if (LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+    if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
       alert('Leaderboard contract address is not set. Please inform the developer.');
       return;
     }

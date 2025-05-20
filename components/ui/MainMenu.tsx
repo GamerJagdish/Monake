@@ -535,7 +535,7 @@ const MainMenu: React.FC = () => {
     abi: LeaderboardABI,
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'entryFee',
-    enabled: LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
   });
 
   useEffect(() => {
@@ -550,7 +550,7 @@ const MainMenu: React.FC = () => {
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'hasPlayerPaidToday',
     args: [address as `0x${string}`],
-    enabled: !!address && isConnected && LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
   });
 
   useEffect(() => {
@@ -594,7 +594,7 @@ const MainMenu: React.FC = () => {
         return;
       }
     }
-    if (LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+    if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
       alert('Leaderboard contract address is not set. Please inform the developer.');
       return;
     }
@@ -831,7 +831,7 @@ const MainMenu: React.FC = () => {
           </motion.button>
           {/* Add to Farcaster button moved to top-left corner */}
 
-          {isConnected && LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE' && (
+          {isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE' && (
             <motion.div 
               className="w-full mt-3"
               initial={{ opacity: 0, y: 10 }}
