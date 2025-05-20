@@ -1724,8 +1724,17 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                   <Button 
                       onClick={() => {
                         if (actions) {
+                          const shareMessages = [
+                            `I scored ${score} in the Monad Snake Game! Can you beat my score? 🐍🎮`,
+                            `Just hit ${score} points in the Monad Snake Game! Challenge me! 🚀`,
+                            `Slithering my way to ${score} in the Monad Snake Game! What's your best? 🌟`,
+                            `Can anyone beat my ${score} points in the Monad Snake Game? Give it a shot! 🏆`,
+                            `Feeling proud of my ${score} in the Monad Snake Game! Join the fun! 🎉`
+                          ];
+                          const randomIndex = Math.floor(Math.random() * shareMessages.length);
+                          const selectedMessage = shareMessages[randomIndex];
                           actions.composeCast({
-                            text: `I scored ${score} in the Monad Snake Game! Can you beat my score? 🐍🎮`,
+                            text: selectedMessage,
                             embeds: [`${APP_URL}`],
                           });
                         }
