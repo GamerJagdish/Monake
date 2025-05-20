@@ -38,3 +38,8 @@ next-env.d.ts
 .env
 
 app/api/notify/broadcast/route.ts
+lib/farcasterUtils.ts
+ignition
+artifacts
+cache
+hardhat.config.ts

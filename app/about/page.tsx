@@ -187,7 +187,7 @@ const AboutPage: React.FC = () => {
             Monake is a classic snake game reimagined with a modern sus twist, built on the Monad blockchain.
           </p>
           <p className="text-center text-slate-300">
-            Enjoy the game and try to get the highest score!
+            Enjoy the game and try to get the highest score! if there are any issues just contact me on farcaster.
           </p>
           
           <div className="text-center mt-6 w-full">

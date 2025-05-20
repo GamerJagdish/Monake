@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// Remove wagmi imports as they are no longer used here
-// import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi'; 
-// import { monadTestnet } from "viem/chains";
+// Wagmi imports for leaderboard interaction
+import { useAccount, useSwitchChain, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'; 
+import { monadTestnet } from "viem/chains";
+import { parseEther, formatEther } from 'viem';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useMotionValue, motion, animate, AnimatePresence } from "motion/react"; // Updated import, added AnimatePresence
@@ -11,6 +12,467 @@ import { Volume2, VolumeX } from 'lucide-react'; // Import icons
 import { sdk } from '@farcaster/frame-sdk';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context"; // Added import
 import { APP_URL } from "@/lib/constants"; // Added import
+
+// TODO: Replace with actual ABI and Contract Address after deployment
+const LEADERBOARD_CONTRACT_ADDRESS = '0x0aC28489445B4d1C55CF1B667BBdF6f20A31Abd9';
+const LeaderboardABI = [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newAllTimeHighScore",
+          "type": "uint256"
+        }
+      ],
+      "name": "AllTimeHighScoreUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "EntryFeePaid",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "oldDay",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newDay",
+          "type": "uint256"
+        }
+      ],
+      "name": "PrizePoolReset",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "ScoreSubmitted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "winner",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "prizeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "WinnerDeclared",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "currentDayTimestamp",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "dailyHighestScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "dailyParticipants",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "dailyPlayerStats",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "hasPaidEntryFee",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "dailyPrizePool",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "dayToProcess",
+          "type": "uint256"
+        }
+      ],
+      "name": "declareWinnerAndDistributePrize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "entryFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCurrentPrizePool",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "getDailyParticipantsList",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getHighestScoreToday",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "getPlayerAllTimeHighScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "getPlayerScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "getPlayerScoreForDay",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "hasPlayerPaidToday",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "payEntryFee",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "playerAllTimeHighScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_newFee",
+          "type": "uint256"
+        }
+      ],
+      "name": "setEntryFee",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        }
+      ],
+      "name": "submitScore",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address payable",
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "withdrawStuckFunds",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ];
 const GRID_WIDTH = 12;
 const GRID_HEIGHT = 17;
 const CELL_SIZE = 30; // Increased for larger cells and snake
@@ -73,7 +535,205 @@ interface SnakeGameProps {
 }
 
 const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted }) => {
-  const { actions } = useMiniAppContext(); // Added to get Farcaster actions
+  const { address, isConnected, chainId } = useAccount();
+  const { switchChain } = useSwitchChain();
+  // Renaming writeContract for submitScore for clarity
+  const { writeContract: submitScoreContract, isPending: isSubmittingScoreTx, data: submitScoreTxHash, reset: resetSubmitScoreTx, error: submitScoreTxError } = useWriteContract();
+  const { writeContract: payEntryFeeContract, isPending: isPayingFee, data: payFeeDataHash, reset: resetPayFee, error: payFeeError } = useWriteContract();
+
+  const [entryFeeAmount, setEntryFeeAmount] = useState<bigint>(parseEther('0.01'));
+  // Renaming hasPaidEntryFee state to hasPaidForTodayForScoreSubmission for clarity within SnakeGame context
+  const [hasPaidForTodayForScoreSubmission, setHasPaidForTodayForScoreSubmission] = useState<boolean>(false);
+  const [isConfirmingFee, setIsConfirmingFee] = useState(false); // Added for fee confirmation tracking 
+  const [isConfirmingScore, setIsConfirmingScore] = useState(false); // Added for score confirmation tracking 
+  const [scoreSubmissionMessage, setScoreSubmissionMessage] = useState(''); 
+  const [showScoreSubmissionStatus, setShowScoreSubmissionStatus] = useState(false);
+  const [isAttemptingScoreSubmission, setIsAttemptingScoreSubmission] = useState<boolean>(false);
+  const [hasSubmittedScore, setHasSubmittedScore] = useState<boolean>(false); // Track if score has been submitted for current game
+
+  // Hook to wait for the transaction receipt for fee payment
+  const { data: feeTxReceipt, isLoading: isLoadingFeeTxReceipt, isSuccess: isFeeTxSuccess } = useWaitForTransactionReceipt({
+    hash: payFeeDataHash,
+    enabled: !!payFeeDataHash, // Only enable when there's a hash
+    query: {
+      // Custom selector to determine success based on receipt status
+      // This ensures isFeeTxSuccess is true only if the transaction was actually successful on-chain.
+      select: (receipt) => receipt.status === 'success',
+    },
+    confirmations: 1, // Wait for 1 confirmation
+  });
+
+  // Hook to wait for the transaction receipt for score submission
+  const { data: scoreTxReceipt, isLoading: isLoadingScoreTxReceipt, isSuccess: isScoreTxSuccess } = useWaitForTransactionReceipt({
+    hash: submitScoreTxHash,
+    enabled: !!submitScoreTxHash, // Only enable when there's a hash
+    query: {
+      select: (receipt) => receipt.status === 'success',
+    },
+    confirmations: 1, // Wait for 1 confirmation
+  });
+
+  // Check if player has paid today
+  const { data: hasPaidEntryFee, refetch: refetchHasPaidEntryFee, isLoading: isLoadingHasPaid } = useReadContract({
+    abi: LeaderboardABI,
+    address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+    functionName: 'hasPlayerPaidToday',
+    args: [address as `0x${string}`],
+    enabled: !!address && isConnected && LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+  });
+
+  // Fetch entry fee amount
+  const { data: fetchedEntryFee, isLoading: isLoadingEntryFee } = useReadContract({
+    abi: LeaderboardABI,
+    address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+    functionName: 'entryFee',
+    enabled: LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+  });
+
+  useEffect(() => {
+    if (fetchedEntryFee) {
+      setEntryFeeAmount(fetchedEntryFee as bigint);
+    }
+  }, [fetchedEntryFee]);
+
+  // Effect to update local payment status for score submission
+  useEffect(() => {
+    // Use hasPaidEntryFee (the direct result from useReadContract) to update the local state
+    if (typeof hasPaidEntryFee === 'boolean') {
+      setHasPaidForTodayForScoreSubmission(hasPaidEntryFee);
+    }
+  }, [hasPaidEntryFee]);
+
+  // Effect to handle fee payment submission (initial step when hash is received)
+  useEffect(() => {
+    if (payFeeDataHash) {
+      // Transaction has been submitted
+      setScoreSubmissionMessage('Entry fee transaction sent! Waiting for confirmation...');
+      setShowScoreSubmissionStatus(true);
+      setIsConfirmingFee(true); // Indicate we are now waiting for confirmation
+    }
+    // Handling payFeeError here is important for immediate feedback if submission itself errored
+    if (payFeeError && !payFeeDataHash) { // Ensure this only runs if submission itself errored
+      setScoreSubmissionMessage(`Failed to pay entry fee: ${payFeeError.message.substring(0, 70)}...`);
+      setShowScoreSubmissionStatus(true);
+      setIsConfirmingFee(false); // No longer confirming
+      resetPayFee(); // Reset wagmi hook state
+    }
+  }, [payFeeDataHash, payFeeError, setScoreSubmissionMessage, setShowScoreSubmissionStatus, setIsConfirmingFee, resetPayFee]);
+
+  // Effect to handle fee transaction confirmation (when useWaitForTransactionReceipt updates)
+  useEffect(() => {
+    if (!payFeeDataHash) return; // Only proceed if there's a hash we are waiting for
+
+    if (isLoadingFeeTxReceipt) {
+      setScoreSubmissionMessage('Confirming entry fee transaction...');
+      setShowScoreSubmissionStatus(true); // Ensure status is shown
+      return;
+    }
+
+    if (isFeeTxSuccess) { // This is true if select returned true (receipt.status === 'success')
+      setScoreSubmissionMessage('Entry fee confirmed! You can now submit your score.');
+      setShowScoreSubmissionStatus(true);
+      setIsConfirmingFee(false);
+      refetchHasPaidEntryFee(); // Refetch payment status to update UI and enable score submission
+      resetPayFee(); // Reset the fee payment hook state as the transaction is processed
+    } else if (!isFeeTxSuccess && !isLoadingFeeTxReceipt && payFeeDataHash) {
+      // This condition means: not loading, not successful (could be reverted or select returned false), and there was a hash.
+      setScoreSubmissionMessage('Entry fee transaction failed or was reverted. Please try again.');
+      setShowScoreSubmissionStatus(true);
+      setIsConfirmingFee(false);
+      resetPayFee(); // Reset the fee payment hook state
+    }
+  }, [
+    payFeeDataHash,
+    isLoadingFeeTxReceipt,
+    isFeeTxSuccess,
+    refetchHasPaidEntryFee,
+    setScoreSubmissionMessage,
+    setShowScoreSubmissionStatus,
+    setIsConfirmingFee,
+    resetPayFee
+  ]);
+
+  // Effect to handle score submission transaction (initial step when hash is received)
+  useEffect(() => {
+    if (submitScoreTxHash) {
+      // Don't show initial transaction message, wait for confirmation
+      setIsConfirmingScore(true);
+      setIsAttemptingScoreSubmission(true); // Keep button disabled
+    }
+    if (submitScoreTxError && !submitScoreTxHash) {
+      setScoreSubmissionMessage(`Failed to submit score: ${submitScoreTxError.message.substring(0, 70)}...`);
+      setShowScoreSubmissionStatus(true);
+      setIsConfirmingScore(false);
+      setIsAttemptingScoreSubmission(false); // Re-enable button
+      resetSubmitScoreTx();
+    }
+  }, [submitScoreTxHash, submitScoreTxError, resetSubmitScoreTx]);
+
+  // Function to handle transaction hash click
+  const { actions } = useMiniAppContext();
+
+  const handleTxHashClick = useCallback((txHash: string) => {
+    actions?.openUrl(`https://testnet.monvision.io/tx/${txHash}`);
+  }, [actions]);
+
+  // Effect to handle score transaction confirmation (when useWaitForTransactionReceipt updates)
+  useEffect(() => {
+    if (!submitScoreTxHash) return;
+
+    if (isLoadingScoreTxReceipt) {
+      setScoreSubmissionMessage(
+        <span>
+          Confirming score submission... (TX: <button 
+            onClick={() => handleTxHashClick(submitScoreTxHash)}
+            className="text-blue-400 hover:text-blue-300 underline"
+          >
+            {`${submitScoreTxHash.slice(0, 10)}...${submitScoreTxHash.slice(-8)}`}
+          </button>)
+        </span>
+      );
+      setShowScoreSubmissionStatus(true);
+      setIsAttemptingScoreSubmission(true);
+      return;
+    }
+
+    if (isScoreTxSuccess) {
+      setScoreSubmissionMessage(
+        <span>
+          Score submitted successfully! ✔️ (TX: <button 
+            onClick={() => handleTxHashClick(submitScoreTxHash)}
+            className="text-blue-400 hover:text-blue-300 underline"
+          >
+            {`${submitScoreTxHash.slice(0, 10)}...${submitScoreTxHash.slice(-8)}`}
+          </button>)
+        </span>
+      );
+      setShowScoreSubmissionStatus(true);
+      setIsConfirmingScore(false);
+      setHasSubmittedScore(true); // Set the submitted state to true
+      setIsAttemptingScoreSubmission(false);
+      // Keep the transaction hash visible but don't reset it
+      // Don't reset the submit score transaction state to keep the UI showing submitted
+    } else if (!isScoreTxSuccess && !isLoadingScoreTxReceipt && submitScoreTxHash) {
+      // This condition implies the transaction was mined but failed (e.g., reverted)
+      setScoreSubmissionMessage(`Score submission transaction failed or was reverted. Please try again. ❌ (TX: ${submitScoreTxHash.slice(0, 10)}...${submitScoreTxHash.slice(-8)})`);
+      setShowScoreSubmissionStatus(true);
+      setIsConfirmingScore(false);
+      setIsAttemptingScoreSubmission(false); // Re-enable button
+      resetSubmitScoreTx();
+    }
+  }, [
+    submitScoreTxHash,
+    isLoadingScoreTxReceipt,
+    isScoreTxSuccess,
+    resetSubmitScoreTx,
+    setScoreSubmissionMessage, 
+    setShowScoreSubmissionStatus, 
+    setIsConfirmingScore, 
+    setIsAttemptingScoreSubmission
+  ]);
+
   // Remove wagmi hook calls
   // const { address, isConnected, chainId } = useAccount();
   const initialSnakePosition = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
@@ -109,6 +769,68 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const [score, setScore] = useState(0);
   const animatedScore = useMotionValue(0); // Use motion value for score
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+
+  const handlePayEntryFeeToSaveScore = async () => {
+    if (!isConnected || !address) {
+      setScoreSubmissionMessage('Please connect your wallet first.');
+      setShowScoreSubmissionStatus(true);
+      return;
+    }
+    if (chainId !== monadTestnet.id) {
+      try {
+        setScoreSubmissionMessage('Switching to Monad Testnet...');
+        setShowScoreSubmissionStatus(true);
+        await switchChain?.({ chainId: monadTestnet.id });
+        // Wait for chain switch to reflect, then re-evaluate or let user retry
+        // For now, we'll let the useEffect for gameOver handle re-evaluation of messages
+        // or the user can click the button again.
+        // A brief timeout might be needed if the chain switch isn't immediate in wagmi's state.
+        await new Promise(resolve => setTimeout(resolve, 1500)); 
+        // After switch, the main gameOver useEffect should update messages if still on gameOver screen
+        // Or, if not on gameOver, the button states will be re-evaluated if clicked again.
+      } catch (e) {
+        setScoreSubmissionMessage('Please switch to Monad Testnet in your wallet and try again.');
+        setShowScoreSubmissionStatus(true);
+        return;
+      }
+      // Re-check chainId after attempting switch, as it might be needed if the component doesn't re-render fast enough
+      // For simplicity, we assume the gameOver useEffect or next button click will handle the updated state.
+    }
+    if (LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+      setScoreSubmissionMessage('Leaderboard contract address is not set.');
+      setShowScoreSubmissionStatus(true);
+      return;
+    }
+    if (isLoadingEntryFee || !entryFeeAmount || entryFeeAmount === 0n) {
+      setScoreSubmissionMessage('Entry fee not loaded. Please wait.');
+      setShowScoreSubmissionStatus(true);
+      return;
+    }
+
+    try {
+      resetPayFee(); // Resets isPayingFee, payFeeDataHash, payFeeError from the hook
+      // isPayingFee will become true via the hook upon calling payEntryFeeContract
+      // isConfirmingFee will be set by the useEffect watching payFeeDataHash
+      setScoreSubmissionMessage('Preparing entry fee transaction...'); // Initial message before wagmi takes over
+      setShowScoreSubmissionStatus(true);
+
+      payEntryFeeContract({
+        abi: LeaderboardABI,
+        address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+        functionName: 'payEntryFee',
+        value: entryFeeAmount,
+      });
+      // Subsequent messages ('Sending Tx...', 'Confirming Tx...') are handled by useEffects
+    } catch (error) {
+      // This catch is for synchronous errors during payEntryFeeContract setup, if any.
+      // Asynchronous errors (like user rejection) are handled by payFeeError in its useEffect.
+      console.error('Error initiating entry fee payment:', error);
+      setScoreSubmissionMessage(`Error preparing payment: ${error instanceof Error ? error.message.substring(0,70)+'...' : 'Unknown error'}`);
+      setShowScoreSubmissionStatus(true);
+      setIsConfirmingFee(false); // Ensure confirming state is false
+      // isPayingFee should be false if resetPayFee() was effective or if the hook handles it.
+    }
+  };
 
   useEffect(() => {
     sdk.actions.ready({ disableNativeGestures: true });
@@ -387,7 +1109,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   }, [isMuted]);
 
   const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
+    (event: KeyboardEvent): void => {
+      // Prevent default for arrow keys to stop page scrolling
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault();
+      }
+
       let newDir: { x: number; y: number } | null = null;
       const latestDir = directionQueueRef.current.length > 0 
         ? directionQueueRef.current[directionQueueRef.current.length - 1] 
@@ -409,7 +1136,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       }
       if (newDir) {
         // setDirectionQueue(q => [...q, newDir!]);
-        directionQueueRef.current.push(newDir!);
+        directionQueueRef.current.push(newDir!); // Keeping newDir! as per original logic
       }
     },
     [] // Refs are stable, no need for them in dependency array
@@ -417,12 +1144,16 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [handleKeyDown]);
 
   const handleTouchStart = (event: React.TouchEvent) => {
     if (event.touches.length === 1) {
       setTouchStart({ x: event.touches[0].clientX, y: event.touches[0].clientY });
+    } else {
+      setTouchStart(null); // Reset if more than one touch
     }
   };
 
@@ -567,6 +1298,148 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     }
   }, [isGameStarting, countdownValue]); // playSound removed from dependencies as it's no longer called here
 
+  const submitPlayerScore = useCallback(async () => {
+    if (hasSubmittedScore) {
+      setScoreSubmissionMessage('Score already submitted for this game. Start a new game to submit again.');
+      setShowScoreSubmissionStatus(true);
+      return;
+    }
+    if (!isConnected || !address) {
+      setScoreSubmissionMessage('Connect wallet to submit score.');
+      setShowScoreSubmissionStatus(true);
+      return; // No need to set isAttemptingScoreSubmission false, as it wasn't set true yet
+    }
+    if (chainId !== monadTestnet.id) {
+      // Attempt to switch chain first
+      try {
+        setScoreSubmissionMessage('Switching to Monad Testnet to submit score...');
+        setShowScoreSubmissionStatus(true);
+        await switchChain?.({ chainId: monadTestnet.id });
+        // Add a small delay to allow wagmi state to update
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Re-check chainId after switch attempt by checking wagmi's reactive state or window.ethereum if needed
+        // For simplicity, we'll let the next click re-evaluate or the gameOver useEffect update the message.
+        // If the component re-renders due to chainId change, this function might be called again if button is clicked.
+        // A more robust way is to check the current chainId from useAccount() again here if it's available immediately after switch.
+        // However, wagmi's state updates might not be instant.
+        // For now, if switch fails or user cancels, the message will persist.
+        // If successful, the next interaction or gameOver useEffect should reflect the change.
+      } catch (e) {
+        setScoreSubmissionMessage('Failed to switch network. Please switch to Monad Testnet in your wallet and try again.');
+        setShowScoreSubmissionStatus(true);
+        return;
+      }
+      // After attempting switch, if still not on the correct chain, show message and return.
+      // This check relies on the chainId from useAccount() being updated.
+      if (chainId !== monadTestnet.id) { // Re-check after switch attempt
+         setScoreSubmissionMessage('Please switch to Monad Testnet in your wallet and try again.');
+         setShowScoreSubmissionStatus(true);
+         return;
+      }
+    }
+    if (LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+        setScoreSubmissionMessage('Leaderboard contract not configured.');
+        setShowScoreSubmissionStatus(true);
+        return;
+    }
+    if (!hasPaidForTodayForScoreSubmission) {
+      setScoreSubmissionMessage('You need to get a daily pass to submit your score.');
+      setShowScoreSubmissionStatus(true);
+      return;
+    }
+    if (score <= 0) {
+      setScoreSubmissionMessage('Score must be greater than 0 to submit.');
+      setShowScoreSubmissionStatus(true);
+      return;
+    }
+
+    // setIsAttemptingScoreSubmission(true); // This will be handled by useEffect watching submitScoreTxHash
+    // setScoreSubmissionMessage('Submitting score...'); // This will be handled by useEffect watching submitScoreTxHash
+    // setShowScoreSubmissionStatus(true); // This will be handled by useEffect watching submitScoreTxHash
+    resetSubmitScoreTx(); // Use the new reset function for the correct hook
+
+    try {
+      submitScoreContract({ // Use the new contract hook instance
+        abi: LeaderboardABI,
+        address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+        functionName: 'submitScore',
+        args: [BigInt(score)],
+      });
+      // Message updates and isAttemptingScoreSubmission are now handled by the dedicated useEffects
+      // for submitScoreTxHash, isLoadingScoreTxReceipt, isScoreTxSuccess, submitScoreTxError.
+    } catch (error) {
+      // This catch is for synchronous errors during submitScoreContract setup.
+      console.error('Error initiating score submission:', error);
+      setScoreSubmissionMessage(`Error preparing submission: ${error instanceof Error ? error.message.substring(0,70)+'...' : 'Unknown error'}`);
+      setShowScoreSubmissionStatus(true);
+      setIsAttemptingScoreSubmission(false); // Ensure button is re-enabled on sync error
+    }
+  }, [isConnected, address, chainId, score, hasPaidForTodayForScoreSubmission, submitScoreContract, resetSubmitScoreTx, switchChain, setScoreSubmissionMessage, setShowScoreSubmissionStatus, setIsAttemptingScoreSubmission]);
+
+  // The old useEffect for submitScoreData and submitScoreError is removed as its logic is now in the
+  // useEffects watching submitScoreTxHash, isLoadingScoreTxReceipt, isScoreTxSuccess, and submitScoreTxError (added in toolcall_3)
+
+
+  // useEffect for handling game over state and UI messages for score submission
+  useEffect(() => {
+    if (gameOver) {
+      // Show status card unless a score submission is already successful or actively being confirmed.
+      if (!isScoreTxSuccess && !isConfirmingScore) {
+        setShowScoreSubmissionStatus(true);
+      }
+
+      // Prioritize messages from active transaction states (fee or score)
+      if (isPayingFee || isConfirmingFee || isSubmittingScoreTx || isConfirmingScore || isLoadingScoreTxReceipt) {
+        // Messages are handled by their respective useEffects, so don't overwrite here.
+      } else if (isScoreTxSuccess) {
+        // Message handled by score submission useEffect: "Score submitted successfully!"
+        // Button will be hidden or replaced by a success message.
+      } else if (isLoadingHasPaid) {
+        setScoreSubmissionMessage('Checking payment status...');
+      } else if (LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+        setScoreSubmissionMessage('Leaderboard not configured. Scores cannot be saved.');
+      } else if (!isConnected || !address) {
+        setScoreSubmissionMessage('Connect wallet to save your score.');
+      } else if (chainId !== monadTestnet.id) {
+        setScoreSubmissionMessage('Switch to Monad Testnet to save your score.');
+      } else if (score <= 0) {
+        setScoreSubmissionMessage('Game Over! No score to submit.');
+      } else if (!hasPaidForTodayForScoreSubmission) {
+        setScoreSubmissionMessage(`Final Score: ${score}. Get pass to submit.`);
+      } else {
+        // Paid, connected, correct network, score > 0, and no active submission process or success
+        setScoreSubmissionMessage(`Final Score: ${score}. Ready to submit!`);
+      }
+    } else {
+      // When game is not over, hide submission status unless a transaction is confirming
+      if (!isConfirmingFee && !isConfirmingScore && !isLoadingFeeTxReceipt && !isLoadingScoreTxReceipt) {
+         setShowScoreSubmissionStatus(false);
+         setScoreSubmissionMessage('');
+      }
+    }
+  }, [
+    gameOver,
+    isConnected,
+    address,
+    hasPaidForTodayForScoreSubmission,
+    score,
+    chainId,
+    isLoadingHasPaid,
+    // Score submission states
+    isScoreTxSuccess,
+    isSubmittingScoreTx,
+    isConfirmingScore,
+    isLoadingScoreTxReceipt,
+    // Fee payment states
+    isPayingFee,
+    isConfirmingFee,
+    isLoadingFeeTxReceipt,
+    // State setters are stable, but including for completeness if their logic changes
+    setShowScoreSubmissionStatus, 
+    setScoreSubmissionMessage   
+  ]);
+
+
   const restartGame = () => {
     playSound('start'); // Play start sound when game restarts and countdown begins
     setIsGameStarting(true);
@@ -584,6 +1457,14 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     directionQueueRef.current = [];
     setGameOver(false);
     setScore(0);
+    
+    // Reset score submission states
+    setScoreSubmissionMessage('');
+    setShowScoreSubmissionStatus(false);
+    setIsAttemptingScoreSubmission(false);
+    setIsConfirmingScore(false);
+    setHasSubmittedScore(false);
+    if (resetSubmitScoreTx) resetSubmitScoreTx(); // Reset the wagmi hook state
   };
 
   return (
@@ -592,6 +1473,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
        style={{ 
          backgroundColor: '#ad99ff', 
          backgroundImage: 'radial-gradient(at 71% 88%, hsla(198,92%,67%,1) 0px, transparent 50%), radial-gradient(at 69% 34%, hsla(281,80%,71%,1) 0px, transparent 50%), radial-gradient(at 83% 89%, hsla(205,61%,69%,1) 0px, transparent 50%), radial-gradient(at 23% 14%, hsla(234,83%,62%,1) 0px, transparent 50%), radial-gradient(at 18% 20%, hsla(302,94%,70%,1) 0px, transparent 50%), radial-gradient(at 1% 45%, hsla(196,99%,70%,1) 0px, transparent 50%), radial-gradient(at 34% 18%, hsla(316,72%,67%,1) 0px, transparent 50%)', 
+         touchAction: 'none' // Prevent passive listener error for touchmove
        }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -806,7 +1688,75 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
               {gameOver && (
                 <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 rounded-lg">
                    <p className="text-6xl font-bold text-white mb-3">💀</p>
-                  <p className="text-5xl font-bold text-red-500 mb-6 animate-pulse">Game Over</p>
+                  <p className="text-5xl font-bold text-red-500 mb-2 animate-pulse">Game Over</p>
+                  <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
+
+                  {/* Score Submission / Payment Button Logic */} 
+                  {score > 0 && LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE' && isConnected && address && chainId === monadTestnet.id && (
+                    hasPaidForTodayForScoreSubmission ? (
+                      isScoreTxSuccess || hasSubmittedScore ? (
+                        <div className="text-center w-3/4 my-2">
+                          <p className="text-green-400 font-semibold text-lg py-2">Submitted!!</p>
+                          {submitScoreTxHash && (
+                            <p className="text-sm text-green-300">
+                              TX: {submitScoreTxHash.slice(0, 10)}...{submitScoreTxHash.slice(-8)}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <Button 
+                          onClick={submitPlayerScore} 
+                          disabled={isAttemptingScoreSubmission || score <= 0 || isPayingFee || isConfirmingFee}
+                          className="w-3/4 py-3 text-lg bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {isAttemptingScoreSubmission ? 'Processing...' : 'Submit Score'}
+                        </Button>
+                      )
+                    ) : (
+                      <Button 
+                        onClick={handlePayEntryFeeToSaveScore}
+                        disabled={isPayingFee || isConfirmingFee || isLoadingHasPaid || isLoadingEntryFee || isAttemptingScoreSubmission}
+                        className="w-3/4 py-3 text-lg bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {isPayingFee ? 'Sending Tx...' 
+                          : isConfirmingFee ? 'Confirming Tx...' 
+                          : (isLoadingHasPaid || isLoadingEntryFee) ? 'Loading Status...' 
+                          : `Save Score (${formatEther(entryFeeAmount)} MON)`}
+                      </Button>
+                    )
+                  )}
+
+                  {(isAttemptingScoreSubmission || isPayingFee || isConfirmingFee) && !isScoreTxSuccess &&
+                    <p className="text-center my-2 text-sm text-blue-300">Please wait...</p> 
+                  }
+                  
+                  {showScoreSubmissionStatus && (
+                    // This message area will show general status or errors not covered by button states
+                    // Specific messages for 'Pay fee', 'Switch chain', 'Connect wallet' are shown if buttons aren't rendered or if those are the primary actions needed.
+                    // Success/failure of actual submission/payment will also appear here.
+                    <p className={`text-sm my-2 p-2 rounded-md w-3/4 text-center ${isScoreTxSuccess || (payFeeDataHash && !payFeeError) ? 'bg-green-700/70 text-green-300' : (submitScoreTxError || payFeeError || (typeof scoreSubmissionMessage === 'string' && (scoreSubmissionMessage.includes('failed') || scoreSubmissionMessage.includes('not configured') || scoreSubmissionMessage.includes('Pay entry fee') || scoreSubmissionMessage.includes('Switch to Monad') || scoreSubmissionMessage.includes('Connect wallet')))) ? 'bg-red-700/70 text-red-300' : 'bg-blue-700/70 text-blue-300'}`}>
+                      {scoreSubmissionMessage}
+                    </p>
+                  )}
+                  {/* Fallback message if contract address is missing and no other message is active */}
+                  {LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
+                     <p className="text-center text-xs text-red-300 p-2 my-2 bg-red-700/50 rounded-md w-3/4">
+                      Leaderboard contract not configured. Scores will not be saved.
+                    </p>
+                  )}
+                 
+                  {/* Original showScoreSubmissionStatus block, now integrated above or covered by button logic */}
+                  {/* {showScoreSubmissionStatus && (
+                    <p className={`text-sm my-2 p-2 rounded-md w-3/4 text-center ${submitScoreData ? 'bg-green-700/70 text-green-300' : (submitScoreError || scoreSubmissionMessage.includes('failed') || scoreSubmissionMessage.includes('not configured') || scoreSubmissionMessage.includes('Pay entry fee') || scoreSubmissionMessage.includes('Switch to Monad') || scoreSubmissionMessage.includes('Connect wallet')) ? 'bg-red-700/70 text-red-300' : 'bg-blue-700/70 text-blue-300'}`}>
+                      {scoreSubmissionMessage}
+                    </p>
+                  )} */}
+                  {/* {LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
+                     <p className="text-center text-xs text-red-300 p-2 my-2 bg-red-700/50 rounded-md w-3/4">
+                      Leaderboard contract not configured. Scores will not be saved.
+                    </p>
+                  )} */}
+
                  
                   {/* <p className="text-2xl text-slate-300 mb-1">Final Score</p> */}
                   {/* <p className="text-3xl font-bold text-cyan-400 mb-4">{score}</p> */}

@@ -9,7 +9,9 @@ import dynamic from 'next/dynamic';
  // Import useRouter
 import { BackgroundGradientAnimation } from './BackgroundGradientAnimation';
 import { Volume2, VolumeX, ArrowDown } from 'lucide-react';
-import { SiFarcaster} from 'react-icons/si'
+import { SiFarcaster} from 'react-icons/si';
+import { useReadContract, useWriteContract } from 'wagmi'; // Added for contract interaction
+import { parseEther, formatEther } from 'viem'; // Added for ETH formatting
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { monadTestnet } from "viem/chains";
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
@@ -48,11 +50,476 @@ const SnakeGame = dynamic(() => import('../SnakeGame'), {
       </div></div>,
 });
 
+// TODO: Replace with actual ABI and Contract Address after deployment
+const LEADERBOARD_CONTRACT_ADDRESS = '0x0aC28489445B4d1C55CF1B667BBdF6f20A31Abd9';
+const LeaderboardABI = [
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newAllTimeHighScore",
+          "type": "uint256"
+        }
+      ],
+      "name": "AllTimeHighScoreUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "EntryFeePaid",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "oldDay",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newDay",
+          "type": "uint256"
+        }
+      ],
+      "name": "PrizePoolReset",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "ScoreSubmitted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "winner",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "prizeAmount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "WinnerDeclared",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "currentDayTimestamp",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "dailyHighestScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "dailyParticipants",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "dailyPlayerStats",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "hasPaidEntryFee",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "dailyPrizePool",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "dayToProcess",
+          "type": "uint256"
+        }
+      ],
+      "name": "declareWinnerAndDistributePrize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "entryFee",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCurrentPrizePool",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "getDailyParticipantsList",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getHighestScoreToday",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "getPlayerAllTimeHighScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "getPlayerScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "day",
+          "type": "uint256"
+        }
+      ],
+      "name": "getPlayerScoreForDay",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        }
+      ],
+      "name": "hasPlayerPaidToday",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "payEntryFee",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "playerAllTimeHighScore",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_newFee",
+          "type": "uint256"
+        }
+      ],
+      "name": "setEntryFee",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "score",
+          "type": "uint256"
+        }
+      ],
+      "name": "submitScore",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address payable",
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "withdrawStuckFunds",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ];
+
 const MainMenu: React.FC = () => {
   const router = useRouter(); // Initialize useRouter
   const [showSnakeGame, setShowSnakeGame] = useState(false);
   const [isLoadingAbout, setIsLoadingAbout] = useState(false); // New state for About page loading
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false); // New state for Leaderboard page loading
   const [isMuted, setIsMuted] = useState(false);
+  const [entryFeeAmount, setEntryFeeAmount] = useState<bigint>(parseEther('0.01'));
+  const [hasPaidForToday, setHasPaidForToday] = useState<boolean>(false);
+  const { writeContract, isPending: isPayingFee, data: payFeeData, reset: resetPayFee, error: payFeeError } = useWriteContract();
   
 
   const { address, isConnected, chainId } = useAccount();
@@ -62,6 +529,97 @@ const MainMenu: React.FC = () => {
 
   const { context: miniAppContext } = useMiniAppContext();
   const farcasterUser = miniAppContext?.user;
+
+  // Fetch entry fee amount
+  const { data: fetchedEntryFee, isLoading: isLoadingEntryFee } = useReadContract({
+    abi: LeaderboardABI,
+    address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+    functionName: 'entryFee',
+    enabled: LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+  });
+
+  useEffect(() => {
+    if (fetchedEntryFee) {
+      setEntryFeeAmount(fetchedEntryFee as bigint);
+    }
+  }, [fetchedEntryFee]);
+
+  // Check if player has paid today
+  const { data: fetchedHasPaid, refetch: refetchHasPaid, isLoading: isLoadingHasPaid } = useReadContract({
+    abi: LeaderboardABI,
+    address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+    functionName: 'hasPlayerPaidToday',
+    args: [address as `0x${string}`],
+    enabled: !!address && isConnected && LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+  });
+
+  useEffect(() => {
+    if (typeof fetchedHasPaid === 'boolean') {
+      setHasPaidForToday(fetchedHasPaid);
+    }
+  }, [fetchedHasPaid]);
+
+  useEffect(() => {
+    if (payFeeData) { // Transaction sent
+      alert('Entry fee transaction submitted! Waiting for confirmation...');
+      // After confirmation, refetch payment status
+      const checkConfirmation = async () => {
+        // Simple timeout based refetch, ideally use useWaitForTransactionReceipt
+        setTimeout(() => {
+          refetchHasPaid();
+        }, 7000); // Check after 7s
+      };
+      checkConfirmation();
+    }
+    if (payFeeError) {
+      alert(`Failed to send transaction: ${payFeeError.message}`);
+    }
+  }, [payFeeData, refetchHasPaid, payFeeError]);
+
+  const handlePayEntryFee = async () => {
+    if (!isConnected || !address) {
+      alert('Please connect your wallet first.');
+      if (connectors.length > 0 && !isConnected) {
+        connect({ connector: connectors[0] });
+      }
+      return;
+    }
+    if (chainId !== monadTestnet.id) {
+      try {
+        await switchChain?.({ chainId: monadTestnet.id });
+        // Wait a brief moment for chain switch to settle before proceeding
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (e) {
+        alert('Please switch to Monad Testnet in your wallet and try again.');
+        return;
+      }
+    }
+    if (LEADERBOARD_CONTRACT_ADDRESS === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+      alert('Leaderboard contract address is not set. Please inform the developer.');
+      return;
+    }
+    if (hasPaidForToday) {
+      alert('You have already paid the entry fee for today.');
+      return;
+    }
+    if (isLoadingEntryFee || !entryFeeAmount || entryFeeAmount === 0n) {
+      alert('Entry fee not loaded yet. Please wait a moment.');
+      return;
+    }
+
+    try {
+      resetPayFee();
+      writeContract({
+        abi: LeaderboardABI,
+        address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+        functionName: 'payEntryFee',
+        value: entryFeeAmount,
+      });
+    } catch (error) {
+      console.error('Error paying entry fee:', error);
+      alert(`Error paying entry fee: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
 
   useEffect(() => {
     // Keep native gestures disabled all the time
@@ -94,9 +652,16 @@ const MainMenu: React.FC = () => {
     // setTimeout(() => router.push('/about'), 100); // Optional delay
     router.push('/about');
   };
+
+  const handleLeaderboardClick = () => {
+    setIsLoadingLeaderboard(true);
+    router.push('/leaderboard');
+  };
+
   useEffect(() => {
     if (router) { // You can add a check to be safe
       router.prefetch('/about');
+      router.prefetch('/leaderboard'); // Prefetch leaderboard page
     }
   }, [router]);
   if (showSnakeGame) {
@@ -107,7 +672,7 @@ const MainMenu: React.FC = () => {
     }} isMuted={isMuted} setIsMuted={setIsMuted} />;
   }
 
-  // isLoadingAbout will now be handled inline to show loading text over the background
+  // isLoadingAbout and isLoadingLeaderboard will now be handled inline to show loading text over the background
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-4 relative">
@@ -120,13 +685,15 @@ const MainMenu: React.FC = () => {
         fourthColor="200, 50, 50"
         fifthColor="180, 180, 50"
       />
-      {isLoadingAbout ? (
+      {isLoadingAbout || isLoadingLeaderboard ? (
         <div className="absolute z-50 inset-0 flex items-center justify-center text-white font-bold px-4 pointer-events-none text-3xl text-center md:text-4xl lg:text-7xl">
           <p className="bg-clip-text text-transparent drop-shadow-2xl bg-gradient-to-b from-white/80 to-white/20">
-            Crawling🐍...
+            {isLoadingAbout ? 'Crawling🐍...' : 'Fetching Leaderboard...'}
           </p>
         </div>
       ) : (
+        <>
+        {/* Removed redundant Crawling text here */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -248,10 +815,10 @@ const MainMenu: React.FC = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            disabled
-            className="w-full py-3 text-lg sm:text-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md opacity-50 cursor-not-allowed transition-colors duration-150 ease-in-out"
+            onClick={handleLeaderboardClick} // Use the new handler
+            className="w-full py-3 text-lg sm:text-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
           >
-            Leaderboard (Coming Soon)
+            Leaderboard
           </motion.button>
           {/* Updated About Button */}
           <motion.button
@@ -263,8 +830,31 @@ const MainMenu: React.FC = () => {
             About
           </motion.button>
           {/* Add to Farcaster button moved to top-left corner */}
+
+          {isConnected && LEADERBOARD_CONTRACT_ADDRESS !== '0xYOUR_CONTRACT_ADDRESS_HERE' && (
+            <motion.div 
+              className="w-full mt-3"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+            >
+              {!hasPaidForToday ? (
+                <Button 
+                  onClick={handlePayEntryFee} 
+                  variant="default" 
+                  className="w-full text-lg py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+                  disabled={isPayingFee || isLoadingEntryFee || isLoadingHasPaid || !entryFeeAmount || entryFeeAmount === 0n}
+                >
+                  {isPayingFee ? 'Processing...' : isLoadingEntryFee || isLoadingHasPaid ? 'Loading Status...' : `Get Daily Pass (${formatEther(entryFeeAmount)} MON)`}
+                </Button>
+              ) : (
+                <p className="text-center text-green-400 py-2 text-md font-semibold">Daily Pass Active!</p>
+              )}
+            </motion.div>
+          )}
         </CardContent>
       </motion.div>
+        </>
       )}
     </div>
   );
