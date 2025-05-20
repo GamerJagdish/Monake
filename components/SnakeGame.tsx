@@ -550,6 +550,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const [showScoreSubmissionStatus, setShowScoreSubmissionStatus] = useState(false);
   const [isAttemptingScoreSubmission, setIsAttemptingScoreSubmission] = useState<boolean>(false);
   const [hasSubmittedScore, setHasSubmittedScore] = useState<boolean>(false); // Track if score has been submitted for current game
+  const [playerAllTimeHighScore, setPlayerAllTimeHighScore] = useState<bigint | null>(null);
+  const [isNewHighScore, setIsNewHighScore] = useState<boolean>(false);
 
   // Hook to wait for the transaction receipt for fee payment
   const { data: feeTxReceipt, isLoading: isLoadingFeeTxReceipt, isSuccess: isFeeTxSuccess } = useWaitForTransactionReceipt({
@@ -572,6 +574,23 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     },
     confirmations: 1, // Wait for 1 confirmation
   });
+
+  // Fetch player's all-time high score
+  const { data: fetchedPlayerAllTimeHighScore, isLoading: isLoadingPlayerAllTimeHighScore, refetch: refetchPlayerAllTimeHighScore } = useReadContract({
+    abi: LeaderboardABI,
+    address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+    functionName: 'getPlayerAllTimeHighScore',
+    args: [address as `0x${string}`],
+    query: {
+      enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+    }
+  });
+
+  useEffect(() => {
+    if (fetchedPlayerAllTimeHighScore !== undefined) {
+      setPlayerAllTimeHighScore(fetchedPlayerAllTimeHighScore as bigint);
+    }
+  }, [fetchedPlayerAllTimeHighScore]);
 
   // Check if player has paid today
   const { data: hasPaidEntryFee, refetch: refetchHasPaidEntryFee, isLoading: isLoadingHasPaid } = useReadContract({
@@ -705,7 +724,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     if (isScoreTxSuccess) {
       setScoreSubmissionMessage(
         <span>
-          Score submitted successfully! ✔️ (TX: <button 
+          {isNewHighScore ? 'New High Score submitted successfully! 🎉' : 'Score submitted successfully! ✔️'} (TX: <button 
             onClick={() => handleTxHashClick(submitScoreTxHash)}
             className="text-blue-400 hover:text-blue-300 underline"
           >
@@ -713,6 +732,11 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
           </button>)
         </span>
       );
+      if (isNewHighScore) {
+        setPlayerAllTimeHighScore(BigInt(score)); // Update local high score immediately
+        // setIsNewHighScore(false); // Reset for next game - this will be reset in restartGame or if game over logic runs again
+      }
+      refetchPlayerAllTimeHighScore?.(); // Refetch player's all-time high score after successful submission
       setShowScoreSubmissionStatus(true);
       setIsConfirmingScore(false);
       setHasSubmittedScore(true); // Set the submitted state to true
@@ -1290,6 +1314,15 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   // useEffect for handling game over state and UI messages for score submission
   useEffect(() => {
     if (gameOver) {
+      // Check for new high score first when game is over
+      if (playerAllTimeHighScore !== null && score > 0 && BigInt(score) > playerAllTimeHighScore) {
+        setIsNewHighScore(true);
+      } else {
+        setIsNewHighScore(false);
+      }
+      // It's good to refetch here in case the user restarts without submitting, or to have the latest for comparison.
+      if(address && isConnected) refetchPlayerAllTimeHighScore?.();
+
       // Show status card unless a score submission is already successful or actively being confirmed.
       if (!isScoreTxSuccess && !isConfirmingScore) {
         setShowScoreSubmissionStatus(true);
@@ -1341,6 +1374,10 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     isPayingFee,
     isConfirmingFee,
     isLoadingFeeTxReceipt,
+    // High score related states
+    playerAllTimeHighScore, 
+    isNewHighScore, // Add isNewHighScore to dependencies
+    // refetchPlayerAllTimeHighScore is stable, setIsNewHighScore is stable
     // State setters are stable, but including for completeness if their logic changes
     setShowScoreSubmissionStatus, 
     setScoreSubmissionMessage   
@@ -1371,7 +1408,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     setIsAttemptingScoreSubmission(false);
     setIsConfirmingScore(false);
     setHasSubmittedScore(false);
+    setIsNewHighScore(false); // Reset new high score flag
     if (resetSubmitScoreTx) resetSubmitScoreTx(); // Reset the wagmi hook state
+    if (address && isConnected) refetchPlayerAllTimeHighScore?.(); // Refetch high score on restart
   };
 
   return (
@@ -1616,7 +1655,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                           disabled={isAttemptingScoreSubmission || score <= 0 || isPayingFee || isConfirmingFee}
                           className="w-3/4 py-3 text-lg bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-2 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          {isAttemptingScoreSubmission ? 'Processing...' : 'Submit Score'}
+                          {isAttemptingScoreSubmission ? 'Processing...' : (isNewHighScore ? `Submit New High Score!` : `Submit Score`)}
                         </Button>
                       )
                     ) : (
