@@ -20,6 +20,10 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .no-scroll-touch {
+    touch-action: none;
+  }
 }
 
 
