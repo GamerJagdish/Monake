@@ -606,7 +606,9 @@ const MainMenu: React.FC = () => {
       }
       return;
     }
+    // Check chain ID first before proceeding with any other operations
     if (chainId !== monadTestnet.id) {
+      alert('Please switch to Monad Testnet to continue.');
       if (!switchChain) { // Check if switchChain is available
         alert('Chain switching is not available with your current wallet setup. Please switch to Monad Testnet manually.');
         return;

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image'; // Added for game over image
 // Wagmi imports for leaderboard interaction
 import { useAccount, useSwitchChain, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'; 
 import { monadTestnet } from "viem/chains";
@@ -1284,6 +1285,23 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       return;
     }
 
+    // Enforce Monad Testnet for score submission
+    if (chainId !== monadTestnet.id) {
+      setScoreSubmissionMessage('Please switch to Monad Testnet to submit your score.');
+      setShowScoreSubmissionStatus(true);
+      if (switchChain) {
+        try {
+          await switchChain({ chainId: monadTestnet.id });
+          // User will need to click "Submit Score" again after switching.
+        } catch (error) {
+          console.error("Failed to switch chain during score submission:", error);
+        }
+      } else {
+        console.error('Switch chain function not available for score submission.');
+      }
+      return; // Prevent submission if not on Monad Testnet or if switch is initiated
+    }
+
     // setIsAttemptingScoreSubmission(true); // This will be handled by useEffect watching submitScoreTxHash
     // setScoreSubmissionMessage('Submitting score...'); // This will be handled by useEffect watching submitScoreTxHash
     // setShowScoreSubmissionStatus(true); // This will be handled by useEffect watching submitScoreTxHash
@@ -1633,7 +1651,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
               {/* Game Over Modal */}
               {gameOver && (
                 <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 rounded-lg">
-                   <p className="text-6xl font-bold text-white mb-3">💀</p>
+                   <Image src="/images/ded-snake-lol.png" alt="Game Over Snake" width={200} height={200} className="mb-3" />
                   <p className="text-5xl font-bold text-red-500 mb-2 animate-pulse">Game Over</p>
                   <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
 
