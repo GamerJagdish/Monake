@@ -723,12 +723,18 @@ const LeaderboardPage: React.FC = () => {
       return;
     }
     if (chainId !== monadTestnet.id) {
+      alert('WRONG NETWORK: Please switch to Monad Testnet to pay the entry fee.');
       switchChain?.({ chainId: monadTestnet.id });
-      alert('Please switch to Monad Testnet and try again.');
       return;
     }
     if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
       alert('Leaderboard contract address is not set. Please inform the developer.');
+      return;
+    }
+
+    // Secondary chain check before writing to contract
+    if (chainId !== monadTestnet.id) {
+      alert('CRITICAL: Transaction halted. You are not on the Monad Testnet. Please switch and try again.');
       return;
     }
 
