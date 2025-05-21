@@ -4,10 +4,7 @@ import { useMiniAppContext } from "@/hooks/use-miniapp-context";
 import dynamic from "next/dynamic";
 import { useState, useEffect } from 'react';
 import { BackgroundGradientAnimation } from '../ui/BackgroundGradientAnimation';
-const Demo = dynamic(() => import("@/components/Home"), {
-  ssr: false,
-  loading: () => <div>Loading...</div>,
-});
+
 
 const MainMenu = dynamic(() => import('../ui/MainMenu'), {
   ssr: false,
