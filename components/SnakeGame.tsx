@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image'; // Added for game over image
 // Wagmi imports for leaderboard interaction
-import { useAccount, useSwitchChain, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'; 
+import { useAccount, useSwitchChain, useReadContract, useWriteContract, useWaitForTransactionReceipt, useConnect, useDisconnect } from 'wagmi'; 
 import { monadTestnet } from "viem/chains";
 import { parseEther, formatEther } from 'viem';
 import { Button } from "@/components/ui/button";
@@ -536,6 +536,8 @@ interface SnakeGameProps {
 }
 
 const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted }) => {
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
   const { address, isConnected, chainId } = useAccount();
   const { switchChain } = useSwitchChain();
   // Renaming writeContract for submitScore for clarity
@@ -1656,7 +1658,24 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                   <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
 
                   {/* Score Submission / Payment Button Logic */} 
-                  {score > 0 && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE' && isConnected && address && chainId === monadTestnet.id && (
+                  {score > 0 && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE' && (
+                    !isConnected ? (
+                      <Button 
+                        onClick={() => connectors.length > 0 && connect({ connector: connectors[0] })}
+                        className="w-3/4 py-3 text-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        Connect Wallet
+                      </Button>
+                    ) : chainId !== monadTestnet.id ? (
+                      <Button 
+                        onClick={() => switchChain && switchChain({ chainId: monadTestnet.id })}
+                        className="w-3/4 py-3 text-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        Switch to Monad Testnet to Save Score
+                      </Button>
+                    ) : ( // Wallet is connected and on the correct chain
+                      isConnected && address && chainId === monadTestnet.id && ( // This inner check is now redundant due to outer checks but kept for safety / structure similarity
+                    
                     hasPaidForTodayForScoreSubmission ? (
                       isScoreTxSuccess || hasSubmittedScore ? (
                         <div className="text-center w-3/4 my-2">
@@ -1688,7 +1707,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                           : `Save Score (${formatEther(entryFeeAmount)} MON)`}
                       </Button>
                     )
-                  )}
+                  )
+                  ))}
+                  {/* End of new connect/switch logic wrapper */}
 
                   {(isAttemptingScoreSubmission || isPayingFee || isConfirmingFee) && !isScoreTxSuccess &&
                     <p className="text-center my-2 text-sm text-blue-300">Please wait...</p> 

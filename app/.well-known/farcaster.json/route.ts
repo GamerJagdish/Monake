@@ -17,7 +17,7 @@ export async function GET() {
       homeUrl: `${APP_URL}`,
       imageUrl: `${APP_URL}/images/feed.png`,
       screenshotUrls: [],
-      tags: ["monad", "monake", "miniapp", "game", "snake"],
+      tags: ["monad", "reward", "airdrop", "token", "snake"],
       primaryCategory: "games",
       buttonTitle: "Play now!",
       splashImageUrl: `${APP_URL}/images/splash.png`,
