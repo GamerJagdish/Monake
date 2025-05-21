@@ -1651,7 +1651,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
               {/* Game Over Modal */}
               {gameOver && (
                 <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 rounded-lg">
-                   <Image src="/images/ded-snake-lol.png" alt="Game Over Snake" width={200} height={200} className="mb-3" />
+                   <Image src="/images/ded-snake-lol.png" alt="Game Over Snake" width={200} height={200} className="mb-3" priority/>
                   <p className="text-5xl font-bold text-red-500 mb-2 animate-pulse">Game Over</p>
                   <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
 
