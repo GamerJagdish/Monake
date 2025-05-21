@@ -607,12 +607,31 @@ const MainMenu: React.FC = () => {
       return;
     }
     if (chainId !== monadTestnet.id) {
+      if (!switchChain) { // Check if switchChain is available
+        alert('Chain switching is not available with your current wallet setup. Please switch to Monad Testnet manually.');
+        return;
+      }
       try {
-        await switchChain?.({ chainId: monadTestnet.id });
-        // Wait a brief moment for chain switch to settle before proceeding
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (e) {
-        alert('Please switch to Monad Testnet in your wallet and try again.');
+        console.log(`Attempting to switch from chain ${chainId} to ${monadTestnet.id}`);
+        await switchChain({ chainId: monadTestnet.id }); // Removed optional chaining as we checked availability above
+        // If switchChain resolves, wagmi's internal state is updated, and the wallet has confirmed the switch.
+        console.log(`Successfully switched to chain ${monadTestnet.id} (or request sent and confirmed by wallet). Proceeding with payment attempt.`);
+      } catch (error) {
+        console.error('Failed to switch chain:', error);
+        let alertMessage = 'An error occurred while trying to switch to Monad Testnet.';
+        if (error instanceof Error) {
+          // Check for common wagmi/viem error patterns for user rejection or wallet incompatibility
+          if ((error as any).code === 4001 || error.message.includes('User rejected the request') || (error as any).shortMessage?.includes('User rejected the request')) {
+            alertMessage = 'Request to switch network was rejected by the user.';
+          } else if (error.message.includes('may not support programmatic chain switching') || (error as any).shortMessage?.includes('programmatic chain switching') || error.message.includes('does not support programmatic chainId')) {
+             alertMessage = 'Your wallet may not support programmatic chain switching or switching to this specific chain. Please switch to Monad Testnet manually.';
+          } else if ((error as any).shortMessage) {
+            alertMessage = `Failed to switch network: ${(error as any).shortMessage}. Please try switching manually.`;
+          } else {
+            alertMessage = `Failed to switch network: ${error.message}. Please try switching manually.`;
+          }
+        }
+        alert(alertMessage);
         return;
       }
     }
