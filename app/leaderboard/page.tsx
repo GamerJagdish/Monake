@@ -474,12 +474,14 @@ interface LeaderboardEntry {
   rank: number;
   player: string; // Address
   score: number;
+  displayName?: string;
+  avatar?: string;
 }
 
 const LeaderboardPage: React.FC = () => {
-  console.log('[LeaderboardPage] Component rendering/mounting.');
+  // console.log('[LeaderboardPage] Component rendering/mounting.');
   const { address, isConnected, chainId } = useAccount();
-  console.log('[LeaderboardPage] Account details: address:', address, 'isConnected:', isConnected, 'chainId:', chainId);
+  // console.log('[LeaderboardPage] Account details: address:', address, 'isConnected:', isConnected, 'chainId:', chainId);
   const { switchChain } = useSwitchChain();
   const { data: hash, sendTransaction, isPending: isSendingEth, reset: resetSendTx } = useSendTransaction();
   const { writeContract, isPending: isConfirmingTx, data: writeData, reset: resetWriteContract } = useWriteContract();
@@ -492,13 +494,16 @@ const LeaderboardPage: React.FC = () => {
   const [entryFeeAmount, setEntryFeeAmount] = useState<bigint>(parseEther('0.01'));
   const [currentDay, setCurrentDay] = useState<bigint | null>(null);
   const publicClient = usePublicClient({ chainId: monadTestnet.id });
-  console.log('[LeaderboardPage] usePublicClient hook called. Initial publicClient (is it null/undefined?):', publicClient === null ? 'null' : publicClient === undefined ? 'undefined' : 'defined');
+  // console.log('[LeaderboardPage] usePublicClient hook called. Initial publicClient (is it null/undefined?):', publicClient === null ? 'null' : publicClient === undefined ? 'undefined' : 'defined');
 
   // Fetch entry fee
   const { data: fetchedEntryFee } = useReadContract({
     abi: LeaderboardABI,
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'entryFee',
+    query: {
+      refetchInterval: 600000, // 10 minutes
+    }
   });
 
   useEffect(() => {
@@ -512,6 +517,9 @@ const LeaderboardPage: React.FC = () => {
     abi: LeaderboardABI,
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'getCurrentPrizePool',
+    query: {
+      refetchInterval: 600000, // 10 minutes
+    }
   });
 
   useEffect(() => {
@@ -525,6 +533,9 @@ const LeaderboardPage: React.FC = () => {
     abi: LeaderboardABI,
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'getHighestScoreToday',
+    query: {
+      refetchInterval: 600000, // 10 minutes
+    }
   });
 
   useEffect(() => {
@@ -548,7 +559,7 @@ const LeaderboardPage: React.FC = () => {
     query: {
       enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
       gcTime: 5000,
-      refetchInterval: 15000,
+      refetchInterval: 600000, // 10 minutes
     }
   });
 
@@ -583,6 +594,7 @@ const LeaderboardPage: React.FC = () => {
     args: [address as `0x${string}`],
     query: {
       enabled: !!address && isConnected,
+      refetchInterval: 600000, // 10 minutes
     }
   });
 
@@ -629,24 +641,86 @@ const LeaderboardPage: React.FC = () => {
 
       const playerScores = await Promise.all(playerScoresPromises);
 
-      // Format and sort the leaderboard
-      const formattedLeaderboard: LeaderboardEntry[] = playerScores
-        .map(({ player, score }) => ({
+      // Sort playerScores by score in descending order and limit to top 50
+      const sortedPlayerScores = [...playerScores]
+        .sort((a, b) => Number(b.score) - Number(a.score))
+        .slice(0, 50);
+
+      // Initial leaderboard with wallet addresses
+      const initialLeaderboard: LeaderboardEntry[] = sortedPlayerScores
+        .map(({ player, score }, index) => ({
+          rank: index + 1,
           player,
           score: Number(score),
-        }))
-        .sort((a, b) => b.score - a.score)
-        .map((entry, index) => ({ ...entry, rank: index + 1 }));
+          displayName: `${player.slice(0, 6)}...${player.slice(-4)}`,
+          avatar: undefined,
+        }));
 
-      setLeaderboardData(formattedLeaderboard);
-      console.log('[fetchLeaderboard] Leaderboard data state updated.');
+      setLeaderboardData(initialLeaderboard);
+
+      // Function to fetch a single profile
+      const fetchProfile = async (address: string): Promise<{ displayName?: string; avatar?: string } | null> => {
+        try {
+          const response = await fetch(`/api/web3bio?address=${address}`);
+          
+          if (response.status === 404) {
+            console.log(`[fetchProfile] No profile found for ${address}`);
+            return null;
+          }
+
+          if (!response.ok) {
+            console.error(`[fetchProfile] Error fetching profile for ${address}:`, response.status);
+            return null;
+          }
+          
+          const profile = await response.json();
+          if (profile && profile.displayName) {
+            console.log(`[fetchProfile] Successfully fetched profile for ${address}`);
+            return {
+              displayName: profile.displayName,
+              avatar: profile.avatar
+            };
+          }
+          return null;
+        } catch (error) {
+          console.error(`[fetchProfile] Error fetching profile for ${address}:`, error);
+          return null;
+        }
+      };
+
+      // Function to update leaderboard with profile data
+      const updateLeaderboardWithProfile = (address: string, profile: { displayName?: string; avatar?: string }) => {
+        setLeaderboardData(prevData => 
+          prevData.map(entry => 
+            entry.player.toLowerCase() === address.toLowerCase()
+              ? { ...entry, displayName: profile.displayName || entry.displayName, avatar: profile.avatar }
+              : entry
+          )
+        );
+      };
+
+      // Fetch profiles in background
+      const fetchProfilesInBackground = async () => {
+        // Process all profiles in parallel since we have API key
+        const profilePromises = sortedPlayerScores.map(async ({ player }) => {
+          const profile = await fetchProfile(player);
+          if (profile) {
+            updateLeaderboardWithProfile(player, profile);
+          }
+        });
+        
+        await Promise.all(profilePromises);
+      };
+
+      // Start background profile fetching
+      fetchProfilesInBackground().catch(error => {
+        console.error('[fetchProfilesInBackground] Error:', error);
+      });
 
     } catch (error) {
       console.error('[fetchLeaderboard] Error fetching or processing leaderboard data:', error);
-      setLeaderboardData([]); // Clear data on error or keep stale
-      console.log('[fetchLeaderboard] Leaderboard data cleared due to error.');
+      setLeaderboardData([]); // Clear data on error
     } finally { 
-      console.log('[fetchLeaderboard] Finally block reached. Setting isLoadingData to false.');
       setIsLoadingData(false);
     }
     
@@ -660,8 +734,8 @@ const LeaderboardPage: React.FC = () => {
       console.log('[fetchLeaderboard] refetchHasPaid called.');
     }
     if ((LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE') {
-      refetchCurrentDay();
-      console.log('[fetchLeaderboard] refetchCurrentDay called.');
+      // refetchCurrentDay(); // Commented out to prevent potential re-render cycle
+      // console.log('[fetchLeaderboard] refetchCurrentDay called.');
     }
     console.log('[fetchLeaderboard] Refetches complete.');
 
@@ -821,7 +895,7 @@ const LeaderboardPage: React.FC = () => {
           </div>
 
           <div className="w-full mt-6">
-            <h3 className="text-2xl font-semibold text-center mb-4 text-slate-100">Top Snakes</h3>
+            <h3 className="text-2xl font-semibold text-center mb-4 text-slate-100">Top 50 Snakes</h3>
             {isLoadingData ? (
               <p className="text-center text-slate-400">Loading leaderboard...</p>
             ) : leaderboardData.length > 0 ? (
@@ -829,7 +903,14 @@ const LeaderboardPage: React.FC = () => {
                 {leaderboardData.map((entry) => (
                   <li key={entry.rank} className="flex justify-between items-center bg-gray-700/70 p-3 rounded-lg shadow">
                     <span className="font-medium text-slate-300">#{entry.rank}</span>
-                    <span className="text-purple-300 truncate w-1/2 text-sm sm:text-base px-2">{entry.player?.slice(0, 6)}...{entry.player?.slice(-4)}</span>
+                    <div className="flex items-center truncate w-1/2 px-2">
+                      {entry.avatar && (
+                        <img src={entry.avatar} alt={entry.displayName || entry.player} className="w-6 h-6 rounded-full mr-2 flex-shrink-0" />
+                      )}
+                      <span className="text-purple-300 text-sm sm:text-base truncate">
+                        {entry.displayName || `${entry.player?.slice(0, 6)}...${entry.player?.slice(-4)}`}
+                      </span>
+                    </div>
                     <span className="font-bold text-yellow-400">{entry.score} pts</span>
                   </li>
                 ))}

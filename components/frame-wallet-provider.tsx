@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { farcasterFrame } from "@farcaster/frame-wagmi-connector";
+import { injected } from "wagmi/connectors";
 import { createConfig, http, WagmiProvider } from "wagmi";
 import { monadTestnet } from "wagmi/chains";
 
@@ -8,7 +9,10 @@ export const config = createConfig({
   transports: {
     [monadTestnet.id]: http(),
   },
-  connectors: [farcasterFrame()],
+  connectors: [
+    farcasterFrame(),
+    injected(), // Add injected connector for browser wallets
+  ],
 });
 
 const queryClient = new QueryClient();
