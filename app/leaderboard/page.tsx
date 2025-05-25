@@ -664,7 +664,6 @@ const LeaderboardPage: React.FC = () => {
           const response = await fetch(`/api/web3bio?address=${address}`);
           
           if (response.status === 404) {
-            console.log(`[fetchProfile] No profile found for ${address}`);
             return null;
           }
 
@@ -675,7 +674,6 @@ const LeaderboardPage: React.FC = () => {
           
           const profile = await response.json();
           if (profile && profile.displayName) {
-            console.log(`[fetchProfile] Successfully fetched profile for ${address}`);
             return {
               displayName: profile.displayName,
               avatar: profile.avatar
@@ -701,15 +699,13 @@ const LeaderboardPage: React.FC = () => {
 
       // Fetch profiles in background
       const fetchProfilesInBackground = async () => {
-        // Process all profiles in parallel since we have API key
-        const profilePromises = sortedPlayerScores.map(async ({ player }) => {
+        // Process profiles sequentially in order of rank
+        for (const { player } of sortedPlayerScores) {
           const profile = await fetchProfile(player);
           if (profile) {
             updateLeaderboardWithProfile(player, profile);
           }
-        });
-        
-        await Promise.all(profilePromises);
+        }
       };
 
       // Start background profile fetching
