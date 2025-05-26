@@ -476,6 +476,7 @@ interface LeaderboardEntry {
   score: number;
   displayName?: string;
   avatar?: string;
+  identity?: string;
 }
 
 const LeaderboardPage: React.FC = () => {
@@ -659,7 +660,7 @@ const LeaderboardPage: React.FC = () => {
       setLeaderboardData(initialLeaderboard);
 
       // Function to fetch a single profile
-      const fetchProfile = async (address: string): Promise<{ displayName?: string; avatar?: string } | null> => {
+      const fetchProfile = async (address: string): Promise<{ displayName?: string; avatar?: string; identity?: string } | null> => {
         try {
           const response = await fetch(`/api/web3bio?address=${address}`);
           
@@ -672,7 +673,8 @@ const LeaderboardPage: React.FC = () => {
           if (profile?.displayName && typeof profile.displayName === 'string' && profile.displayName.length > 0) {
             return {
               displayName: profile.displayName,
-              avatar: profile.avatar
+              avatar: profile.avatar,
+              identity: profile.identity
             };
           }
           return null;
@@ -683,13 +685,13 @@ const LeaderboardPage: React.FC = () => {
       };
 
       // Function to update leaderboard with profile data
-      const updateLeaderboardWithProfile = (address: string, profile: { displayName?: string; avatar?: string }) => {
+      const updateLeaderboardWithProfile = (address: string, profile: { displayName?: string; avatar?: string; identity?: string }) => {
         // Only update if we have a valid displayName
         if (profile.displayName && typeof profile.displayName === 'string' && profile.displayName.length > 0) {
           setLeaderboardData(prevData => 
             prevData.map(entry => 
               entry.player.toLowerCase() === address.toLowerCase()
-                ? { ...entry, displayName: profile.displayName, avatar: profile.avatar }
+                ? { ...entry, displayName: profile.displayName, avatar: profile.avatar, identity: profile.identity }
                 : entry
             )
           );
@@ -863,7 +865,7 @@ const LeaderboardPage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-2xl bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 p-6 sm:p-8 relative"
+        className="w-full max-w-2xl bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 p-4 sm:p-6 relative"
       >
         <Link href="/" passHref className="absolute top-4 left-4 text-slate-300 hover:text-slate-100 transition-colors z-20">
           <ArrowLeft size={28} />
@@ -895,31 +897,56 @@ const LeaderboardPage: React.FC = () => {
               <p className="text-center text-slate-400">Loading leaderboard...</p>
             ) : leaderboardData.length > 0 ? (
               <ul className="space-y-3">
-                {leaderboardData.map((entry) => (
-                  <li key={entry.rank} className="flex justify-between items-center bg-gray-700/70 p-3 rounded-lg shadow">
-                    <span className="font-medium text-slate-300">#{entry.rank}</span>
-                    <div className="flex items-center truncate w-1/2 px-2">
-                      {entry.avatar && (
-                        <img src={entry.avatar} alt={entry.displayName || entry.player} className="w-6 h-6 rounded-full mr-2 flex-shrink-0" />
-                      )}
-                      <span className="text-purple-300 text-sm sm:text-base truncate">
-                        {entry.displayName ? (
-                          <button
-                            onClick={() => window.open(`https://farcaster.xyz/${entry.displayName}`, '_blank')}
-                            className="hover:text-purple-200 transition-colors"
-                          >
-                            {entry.displayName}
-                          </button>
-                        ) : (
-                          <span className="text-purple-300">
-                            {`${entry.player.slice(0, 6)}...${entry.player.slice(-4)}`}
-                          </span>
+                {leaderboardData.map((entry) => {
+                  let bgClass = "bg-gray-700/70";
+                  let textClass = "text-slate-300";
+                  let hoverClass = "hover:text-purple-200";
+                  if (entry.rank === 1) {
+                    bgClass = "bg-gradient-to-r from-yellow-400 to-yellow-200";
+                    textClass = "text-slate-900";
+                    hoverClass = "hover:text-purple-400";
+                  } else if (entry.rank === 2) {
+                    bgClass = "bg-gradient-to-r from-gray-300 to-gray-100";
+                    textClass = "text-slate-900";
+                    hoverClass = "hover:text-purple-400";
+                  } else if (entry.rank === 3) {
+                    bgClass = "bg-gradient-to-r from-[#b87333] to-[#d7976a]"; // true bronze
+                    textClass = "text-white";
+                    hoverClass = "hover:text-purple-200";
+                  }
+                  return (
+                    <li key={entry.rank} className={`flex flex-col ${bgClass} p-4 rounded-lg shadow`}>
+                      <div className="flex items-center w-full">
+                        <span className={`font-medium mr-3 ${textClass}`}>{entry.rank}</span>
+                        {entry.avatar && (
+                          <img src={entry.avatar} alt={entry.displayName || entry.player} className="w-8 h-8 rounded-full mr-3 flex-shrink-0" />
                         )}
-                      </span>
-                    </div>
-                    <span className="font-bold text-yellow-400">{entry.score} pts</span>
-                  </li>
-                ))}
+                        <div className="flex flex-col">
+                          <span
+                            className={`text-base font-semibold truncate max-w-[160px] sm:max-w-[220px] ${textClass}`}
+                            title={entry.displayName}
+                            style={{ wordBreak: 'break-word' }}
+                          >
+                            {entry.displayName ? (
+                              <button
+                                onClick={() => window.open(`https://farcaster.xyz/${entry.identity || entry.displayName}`, '_blank')}
+                                className={`transition-colors text-left ${textClass} ${hoverClass}`}
+                                style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                              >
+                                {entry.displayName}
+                              </button>
+                            ) : (
+                              <span className={textClass}>
+                                {`${entry.player.slice(0, 6)}...${entry.player.slice(-4)}`}
+                              </span>
+                            )}
+                          </span>
+                          <span className={`font-bold text-xs mt-1 ${textClass}`}>{entry.score} pts</span>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="text-center text-slate-400">No scores submitted yet today. Be the first!</p>
