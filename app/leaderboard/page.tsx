@@ -915,15 +915,15 @@ const LeaderboardPage: React.FC = () => {
                     hoverClass = "hover:text-purple-200";
                   }
                   return (
-                    <li key={entry.rank} className={`flex flex-col ${bgClass} p-4 rounded-lg shadow`}>
-                      <div className="flex items-center w-full">
-                        <span className={`font-medium mr-3 ${textClass}`}>{entry.rank}</span>
+                    <li key={entry.rank} className={`flex flex-col ${bgClass} p-2 rounded-lg shadow min-h-0`}>
+                      <div className="flex items-center w-full gap-2">
+                        <span className={`font-medium text-xs w-6 text-center ${textClass}`}>{entry.rank}</span>
                         {entry.avatar && (
-                          <img src={entry.avatar} alt={entry.displayName || entry.player} className="w-8 h-8 rounded-full mr-3 flex-shrink-0" />
+                          <img src={entry.avatar} alt={entry.displayName || entry.player} className="w-6 h-6 rounded-full mr-2 flex-shrink-0" />
                         )}
                         <div className="flex flex-col">
                           <span
-                            className={`text-base font-semibold truncate max-w-[160px] sm:max-w-[220px] ${textClass}`}
+                            className={`text-xs font-semibold truncate max-w-[100px] sm:max-w-[140px] ${textClass}`}
                             title={entry.displayName}
                             style={{ wordBreak: 'break-word' }}
                           >
@@ -931,7 +931,7 @@ const LeaderboardPage: React.FC = () => {
                               <button
                                 onClick={() => window.open(`https://farcaster.xyz/${entry.identity || entry.displayName}`, '_blank')}
                                 className={`transition-colors text-left ${textClass} ${hoverClass}`}
-                                style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                                style={{ whiteSpace: 'normal', wordBreak: 'break-word', fontSize: '0.95em' }}
                               >
                                 {entry.displayName}
                               </button>
@@ -941,7 +941,7 @@ const LeaderboardPage: React.FC = () => {
                               </span>
                             )}
                           </span>
-                          <span className={`font-bold text-xs mt-1 ${textClass}`}>{entry.score} pts</span>
+                          <span className={`font-bold text-[0.7rem] mt-0.5 ${textClass}`}>{entry.score} pts</span>
                         </div>
                       </div>
                     </li>
