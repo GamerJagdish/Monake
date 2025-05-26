@@ -652,7 +652,7 @@ const LeaderboardPage: React.FC = () => {
           rank: index + 1,
           player,
           score: Number(score),
-          displayName: `${player.slice(0, 6)}...${player.slice(-4)}`,
+          displayName: undefined,
           avatar: undefined,
         }));
 
@@ -663,17 +663,13 @@ const LeaderboardPage: React.FC = () => {
         try {
           const response = await fetch(`/api/web3bio?address=${address}`);
           
-          if (response.status === 404) {
-            return null;
-          }
-
-          if (!response.ok) {
-            console.error(`[fetchProfile] Error fetching profile for ${address}:`, response.status);
+          if (response.status === 404 || !response.ok) {
             return null;
           }
           
           const profile = await response.json();
-          if (profile && profile.displayName) {
+          // Only return profile if it has a valid displayName
+          if (profile?.displayName && typeof profile.displayName === 'string' && profile.displayName.length > 0) {
             return {
               displayName: profile.displayName,
               avatar: profile.avatar
@@ -688,13 +684,16 @@ const LeaderboardPage: React.FC = () => {
 
       // Function to update leaderboard with profile data
       const updateLeaderboardWithProfile = (address: string, profile: { displayName?: string; avatar?: string }) => {
-        setLeaderboardData(prevData => 
-          prevData.map(entry => 
-            entry.player.toLowerCase() === address.toLowerCase()
-              ? { ...entry, displayName: profile.displayName || entry.displayName, avatar: profile.avatar }
-              : entry
-          )
-        );
+        // Only update if we have a valid displayName
+        if (profile.displayName && typeof profile.displayName === 'string' && profile.displayName.length > 0) {
+          setLeaderboardData(prevData => 
+            prevData.map(entry => 
+              entry.player.toLowerCase() === address.toLowerCase()
+                ? { ...entry, displayName: profile.displayName, avatar: profile.avatar }
+                : entry
+            )
+          );
+        }
       };
 
       // Fetch profiles in background
@@ -904,7 +903,18 @@ const LeaderboardPage: React.FC = () => {
                         <img src={entry.avatar} alt={entry.displayName || entry.player} className="w-6 h-6 rounded-full mr-2 flex-shrink-0" />
                       )}
                       <span className="text-purple-300 text-sm sm:text-base truncate">
-                        {entry.displayName || `${entry.player?.slice(0, 6)}...${entry.player?.slice(-4)}`}
+                        {entry.displayName ? (
+                          <button
+                            onClick={() => window.open(`https://farcaster.xyz/${entry.displayName}`, '_blank')}
+                            className="hover:text-purple-200 transition-colors"
+                          >
+                            {entry.displayName}
+                          </button>
+                        ) : (
+                          <span className="text-purple-300">
+                            {`${entry.player.slice(0, 6)}...${entry.player.slice(-4)}`}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <span className="font-bold text-yellow-400">{entry.score} pts</span>
