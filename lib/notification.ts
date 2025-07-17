@@ -41,7 +41,7 @@ export async function getAllUserNotificationDetails(): Promise<
   try {
     do {
       // eslint-disable-next-line no-await-in-loop
-      const [nextCursor, keys] = await redis.scan(cursor, { match: broadPattern, count: 400 }); // Increased count for broader scan
+      const [nextCursor, keys] = await redis.scan(cursor, { match: broadPattern, count: 2000 }); // Increased count for broader scan
       cursor = Number(nextCursor);
       if (keys.length > 0) {
         allScannedKeys.push(...keys);
