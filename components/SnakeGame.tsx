@@ -14,6 +14,7 @@ import { sdk } from '@farcaster/frame-sdk';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context"; // Added import
 import { APP_URL } from "@/lib/constants"; // Added import
 import { LEADERBOARD_CONTRACT_ADDRESS, LEADERBOARD_CONTRACT_ABI as LeaderboardABI } from '@/contracts';
+import { getLeaderboardSignature } from "@/lib/leaderboard";
 
 const GRID_WIDTH = 12;
 const GRID_HEIGHT = 17;
@@ -338,6 +339,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const animatedScore = useMotionValue(0); // Use motion value for score
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
 
+  // Helper to get current day timestamp (00:00 UTC, in seconds)
+  function getCurrentDayTimestamp() {
+    const now = Math.floor(Date.now() / 1000); // seconds
+    return now - (now % 86400);
+  }
+
   const handlePayEntryFeeToSaveScore = async () => {
     if (!isConnected || !address) {
       setScoreSubmissionMessage('Please connect your wallet first.');
@@ -349,20 +356,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         setScoreSubmissionMessage('Switching to Monad Testnet...');
         setShowScoreSubmissionStatus(true);
         await switchChain?.({ chainId: monadTestnet.id });
-        // Wait for chain switch to reflect, then re-evaluate or let user retry
-        // For now, we'll let the useEffect for gameOver handle re-evaluation of messages
-        // or the user can click the button again.
-        // A brief timeout might be needed if the chain switch isn't immediate in wagmi's state.
         await new Promise(resolve => setTimeout(resolve, 1500)); 
-        // After switch, the main gameOver useEffect should update messages if still on gameOver screen
-        // Or, if not on gameOver, the button states will be re-evaluated if clicked again.
       } catch (e) {
         setScoreSubmissionMessage('Please switch to Monad Testnet in your wallet and try again.');
         setShowScoreSubmissionStatus(true);
         return;
       }
-      // Re-check chainId after attempting switch, as it might be needed if the component doesn't re-render fast enough
-      // For simplicity, we assume the gameOver useEffect or next button click will handle the updated state.
     }
     if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
       setScoreSubmissionMessage('Leaderboard contract address is not set.');
@@ -374,29 +373,33 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       setShowScoreSubmissionStatus(true);
       return;
     }
-
     try {
-      resetPayFee(); // Resets isPayingFee, payFeeDataHash, payFeeError from the hook
-      // isPayingFee will become true via the hook upon calling payEntryFeeContract
-      // isConfirmingFee will be set by the useEffect watching payFeeDataHash
-      setScoreSubmissionMessage('Preparing entry fee transaction...'); // Initial message before wagmi takes over
+      resetPayFee();
+      setScoreSubmissionMessage('Preparing entry fee transaction...');
       setShowScoreSubmissionStatus(true);
-
+      // Get signature from backend
+      const day = getCurrentDayTimestamp();
+      let signature;
+      try {
+        signature = await getLeaderboardSignature(address, day);
+      } catch (err) {
+        setScoreSubmissionMessage('Failed to get signature for entry fee.');
+        setShowScoreSubmissionStatus(true);
+        setIsConfirmingFee(false);
+        return;
+      }
       payEntryFeeContract({
         abi: LeaderboardABI,
         address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
         functionName: 'payEntryFee',
+        args: [signature],
         value: entryFeeAmount,
       });
-      // Subsequent messages ('Sending Tx...', 'Confirming Tx...') are handled by useEffects
     } catch (error) {
-      // This catch is for synchronous errors during payEntryFeeContract setup, if any.
-      // Asynchronous errors (like user rejection) are handled by payFeeError in its useEffect.
       console.error('Error initiating entry fee payment:', error);
       setScoreSubmissionMessage(`Error preparing payment: ${error instanceof Error ? error.message.substring(0,70)+'...' : 'Unknown error'}`);
       setShowScoreSubmissionStatus(true);
-      setIsConfirmingFee(false); // Ensure confirming state is false
-      // isPayingFee should be false if resetPayFee() was effective or if the hook handles it.
+      setIsConfirmingFee(false);
     }
   };
 
@@ -782,31 +785,20 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     if (!isConnected || !address) {
       setScoreSubmissionMessage('Connect wallet to submit score.');
       setShowScoreSubmissionStatus(true);
-      return; // No need to set isAttemptingScoreSubmission false, as it wasn't set true yet
+      return;
     }
     if (chainId !== monadTestnet.id) {
-      // Attempt to switch chain first
       try {
         setScoreSubmissionMessage('Switching to Monad Testnet to submit score...');
         setShowScoreSubmissionStatus(true);
         await switchChain?.({ chainId: monadTestnet.id });
-        // Add a small delay to allow wagmi state to update
         await new Promise(resolve => setTimeout(resolve, 1500));
-        // Re-check chainId after switch attempt by checking wagmi's reactive state or window.ethereum if needed
-        // For simplicity, we'll let the next click re-evaluate or the gameOver useEffect update the message.
-        // If the component re-renders due to chainId change, this function might be called again if button is clicked.
-        // A more robust way is to check the current chainId from useAccount() again here if it's available immediately after switch.
-        // However, wagmi's state updates might not be instant.
-        // For now, if switch fails or user cancels, the message will persist.
-        // If successful, the next interaction or gameOver useEffect should reflect the change.
       } catch (e) {
         setScoreSubmissionMessage('Failed to switch network. Please switch to Monad Testnet in your wallet and try again.');
         setShowScoreSubmissionStatus(true);
         return;
       }
-      // After attempting switch, if still not on the correct chain, show message and return.
-      // This check relies on the chainId from useAccount() being updated.
-      if (chainId !== monadTestnet.id) { // Re-check after switch attempt
+      if (chainId !== monadTestnet.id) {
          setScoreSubmissionMessage('Please switch to Monad Testnet in your wallet and try again.');
          setShowScoreSubmissionStatus(true);
          return;
@@ -827,44 +819,43 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       setShowScoreSubmissionStatus(true);
       return;
     }
-
-    // Enforce Monad Testnet for score submission
     if (chainId !== monadTestnet.id) {
       setScoreSubmissionMessage('Please switch to Monad Testnet to submit your score.');
       setShowScoreSubmissionStatus(true);
       if (switchChain) {
         try {
           await switchChain({ chainId: monadTestnet.id });
-          // User will need to click "Submit Score" again after switching.
         } catch (error) {
           console.error("Failed to switch chain during score submission:", error);
         }
       } else {
         console.error('Switch chain function not available for score submission.');
       }
-      return; // Prevent submission if not on Monad Testnet or if switch is initiated
+      return;
     }
-
-    // setIsAttemptingScoreSubmission(true); // This will be handled by useEffect watching submitScoreTxHash
-    // setScoreSubmissionMessage('Submitting score...'); // This will be handled by useEffect watching submitScoreTxHash
-    // setShowScoreSubmissionStatus(true); // This will be handled by useEffect watching submitScoreTxHash
-    resetSubmitScoreTx(); // Use the new reset function for the correct hook
-
+    resetSubmitScoreTx();
     try {
-      submitScoreContract({ // Use the new contract hook instance
+      const day = getCurrentDayTimestamp();
+      let signature;
+      try {
+        signature = await getLeaderboardSignature(address, day);
+      } catch (err) {
+        setScoreSubmissionMessage('Failed to get signature for score submission.');
+        setShowScoreSubmissionStatus(true);
+        setIsAttemptingScoreSubmission(false);
+        return;
+      }
+      submitScoreContract({
         abi: LeaderboardABI,
         address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
         functionName: 'submitScore',
-        args: [BigInt(score)],
+        args: [BigInt(score), signature],
       });
-      // Message updates and isAttemptingScoreSubmission are now handled by the dedicated useEffects
-      // for submitScoreTxHash, isLoadingScoreTxReceipt, isScoreTxSuccess, submitScoreTxError.
     } catch (error) {
-      // This catch is for synchronous errors during submitScoreContract setup.
       console.error('Error initiating score submission:', error);
       setScoreSubmissionMessage(`Error preparing submission: ${error instanceof Error ? error.message.substring(0,70)+'...' : 'Unknown error'}`);
       setShowScoreSubmissionStatus(true);
-      setIsAttemptingScoreSubmission(false); // Ensure button is re-enabled on sync error
+      setIsAttemptingScoreSubmission(false);
     }
   }, [isConnected, address, chainId, score, hasPaidForTodayForScoreSubmission, submitScoreContract, resetSubmitScoreTx, switchChain, setScoreSubmissionMessage, setShowScoreSubmissionStatus, setIsAttemptingScoreSubmission]);
 

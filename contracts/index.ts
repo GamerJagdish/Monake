@@ -1,11 +1,7 @@
 export const LEADERBOARD_CONTRACT_ADDRESS =
-  "0x0aC28489445B4d1C55CF1B667BBdF6f20A31Abd9";
+  "0xCb19b6D4ebaAA2C75F5d5D339be22705d15BA445";
 export const LEADERBOARD_CONTRACT_ABI = [
-  {
-    inputs: [],
-    stateMutability: "nonpayable",
-    type: "constructor",
-  },
+  { inputs: [], stateMutability: "nonpayable", type: "constructor" },
   {
     anonymous: false,
     inputs: [
@@ -40,14 +36,23 @@ export const LEADERBOARD_CONTRACT_ABI = [
         name: "amount",
         type: "uint256",
       },
+      { indexed: false, internalType: "uint256", name: "day", type: "uint256" },
+    ],
+    name: "EntryFeePaid",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, internalType: "uint256", name: "day", type: "uint256" },
       {
         indexed: false,
         internalType: "uint256",
-        name: "day",
+        name: "amount",
         type: "uint256",
       },
     ],
-    name: "EntryFeePaid",
+    name: "PrizePoolIncreased",
     type: "event",
   },
   {
@@ -84,14 +89,41 @@ export const LEADERBOARD_CONTRACT_ABI = [
         name: "score",
         type: "uint256",
       },
+      { indexed: false, internalType: "uint256", name: "day", type: "uint256" },
+    ],
+    name: "ScoreSubmitted",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "newSigner",
+        type: "address",
+      },
+    ],
+    name: "SignerChanged",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "player",
+        type: "address",
+      },
       {
         indexed: false,
         internalType: "uint256",
-        name: "day",
+        name: "colorId",
         type: "uint256",
       },
     ],
-    name: "ScoreSubmitted",
+    name: "SnakeColorPurchased",
     type: "event",
   },
   {
@@ -109,127 +141,93 @@ export const LEADERBOARD_CONTRACT_ABI = [
         name: "prizeAmount",
         type: "uint256",
       },
-      {
-        indexed: false,
-        internalType: "uint256",
-        name: "day",
-        type: "uint256",
-      },
+      { indexed: false, internalType: "uint256", name: "day", type: "uint256" },
     ],
     name: "WinnerDeclared",
     type: "event",
   },
   {
     inputs: [],
+    name: "SNAKE_COLOR_PRICE",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "addToPrizePool",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "colorId", type: "uint256" }],
+    name: "buySnakeColor",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "currentDayTimestamp",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     name: "dailyHighestScore",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+      { internalType: "uint256", name: "", type: "uint256" },
+      { internalType: "uint256", name: "", type: "uint256" },
     ],
     name: "dailyParticipants",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
+    outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
+    inputs: [{ internalType: "address", name: "", type: "address" }],
     name: "dailyPlayerStats",
     outputs: [
-      {
-        internalType: "uint256",
-        name: "score",
-        type: "uint256",
-      },
-      {
-        internalType: "uint256",
-        name: "timestamp",
-        type: "uint256",
-      },
-      {
-        internalType: "bool",
-        name: "hasPaidEntryFee",
-        type: "bool",
-      },
+      { internalType: "uint256", name: "score", type: "uint256" },
+      { internalType: "uint256", name: "timestamp", type: "uint256" },
+      { internalType: "bool", name: "hasPaidEntryFee", type: "bool" },
+      { internalType: "string", name: "name", type: "string" },
+      { internalType: "uint256", name: "fid", type: "uint256" },
     ],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "dailyPrizeAwarded",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     name: "dailyPrizePool",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "dailyWinner",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [
-      {
-        internalType: "uint256",
-        name: "dayToProcess",
-        type: "uint256",
-      },
+      { internalType: "uint256", name: "dayToProcess", type: "uint256" },
     ],
     name: "declareWinnerAndDistributePrize",
     outputs: [],
@@ -239,189 +237,129 @@ export const LEADERBOARD_CONTRACT_ABI = [
   {
     inputs: [],
     name: "entryFee",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [],
     name: "getCurrentPrizePool",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "day",
-        type: "uint256",
-      },
-    ],
+    inputs: [{ internalType: "uint256", name: "day", type: "uint256" }],
     name: "getDailyParticipantsList",
-    outputs: [
-      {
-        internalType: "address[]",
-        name: "",
-        type: "address[]",
-      },
-    ],
+    outputs: [{ internalType: "address[]", name: "", type: "address[]" }],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [],
     name: "getHighestScoreToday",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "player",
-        type: "address",
-      },
-    ],
+    inputs: [{ internalType: "address", name: "player", type: "address" }],
     name: "getPlayerAllTimeHighScore",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "player",
-        type: "address",
-      },
-    ],
+    inputs: [{ internalType: "address", name: "player", type: "address" }],
     name: "getPlayerScore",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [
-      {
-        internalType: "address",
-        name: "player",
-        type: "address",
-      },
-      {
-        internalType: "uint256",
-        name: "day",
-        type: "uint256",
-      },
+      { internalType: "address", name: "player", type: "address" },
+      { internalType: "uint256", name: "day", type: "uint256" },
     ],
     name: "getPlayerScoreForDay",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "day", type: "uint256" }],
+    name: "getWinnerAndPrize",
     outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
+      { internalType: "address", name: "winner", type: "address" },
+      { internalType: "uint256", name: "prize", type: "uint256" },
     ],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "player",
-        type: "address",
-      },
-    ],
+    inputs: [{ internalType: "address", name: "player", type: "address" }],
     name: "hasPlayerPaidToday",
-    outputs: [
-      {
-        internalType: "bool",
-        name: "",
-        type: "bool",
-      },
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "", type: "address" },
+      { internalType: "uint256", name: "", type: "uint256" },
     ],
+    name: "ownedSnakeColors",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
     stateMutability: "view",
     type: "function",
   },
   {
     inputs: [],
     name: "owner",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
+    outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [],
+    inputs: [
+      { internalType: "address", name: "player", type: "address" },
+      { internalType: "uint256", name: "colorId", type: "uint256" },
+    ],
+    name: "ownsSnakeColor",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "bytes", name: "signature", type: "bytes" }],
     name: "payEntryFee",
     outputs: [],
     stateMutability: "payable",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
+    inputs: [{ internalType: "address", name: "", type: "address" }],
     name: "playerAllTimeHighScore",
-    outputs: [
-      {
-        internalType: "uint256",
-        name: "",
-        type: "uint256",
-      },
-    ],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [
-      {
-        internalType: "uint256",
-        name: "_newFee",
-        type: "uint256",
-      },
-    ],
+    inputs: [{ internalType: "address", name: "", type: "address" }],
+    name: "playerFID",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "", type: "address" }],
+    name: "playerName",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "_newFee", type: "uint256" }],
     name: "setEntryFee",
     outputs: [],
     stateMutability: "nonpayable",
@@ -429,11 +367,32 @@ export const LEADERBOARD_CONTRACT_ABI = [
   },
   {
     inputs: [
-      {
-        internalType: "uint256",
-        name: "score",
-        type: "uint256",
-      },
+      { internalType: "string", name: "name", type: "string" },
+      { internalType: "uint256", name: "fid", type: "uint256" },
+    ],
+    name: "setPlayerIdentity",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_signer", type: "address" }],
+    name: "setSigner",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "signer",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "score", type: "uint256" },
+      { internalType: "bytes", name: "signature", type: "bytes" },
     ],
     name: "submitScore",
     outputs: [],
@@ -442,19 +401,21 @@ export const LEADERBOARD_CONTRACT_ABI = [
   },
   {
     inputs: [
-      {
-        internalType: "address payable",
-        name: "to",
-        type: "address",
-      },
+      { internalType: "address", name: "user", type: "address" },
+      { internalType: "uint256", name: "day", type: "uint256" },
+      { internalType: "bytes", name: "signature", type: "bytes" },
     ],
+    name: "verifySignature",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address payable", name: "to", type: "address" }],
     name: "withdrawStuckFunds",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
-  {
-    stateMutability: "payable",
-    type: "receive",
-  },
+  { stateMutability: "payable", type: "receive" },
 ];
