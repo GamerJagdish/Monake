@@ -5,10 +5,12 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { BackgroundGradientAnimation } from '@/components/ui/BackgroundGradientAnimation';
-import { useAccount, useSendTransaction, useSwitchChain, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount, useSendTransaction, useSwitchChain, useReadContract, useWriteContract, usePublicClient, useWalletClient } from 'wagmi';
 import { monadTestnet } from 'viem/chains';
 import { parseEther, formatEther, createPublicClient, http, decodeEventLog } from 'viem';
 import { ArrowLeft } from 'lucide-react';
+import { getLeaderboardSignature } from '@/lib/leaderboard';
+import { ethers } from 'ethers';
 
 const LEADERBOARD_CONTRACT_ADDRESS = '0x0aC28489445B4d1C55CF1B667BBdF6f20A31Abd9';
 const LeaderboardABI = [
@@ -477,6 +479,8 @@ interface LeaderboardEntry {
   displayName?: string;
   avatar?: string;
   identity?: string;
+  name?: string;
+  fid?: string;
 }
 
 const LeaderboardPage: React.FC = () => {
@@ -486,6 +490,7 @@ const LeaderboardPage: React.FC = () => {
   const { switchChain } = useSwitchChain();
   const { data: hash, sendTransaction, isPending: isSendingEth, reset: resetSendTx } = useSendTransaction();
   const { writeContract, isPending: isConfirmingTx, data: writeData, reset: resetWriteContract } = useWriteContract();
+  const { data: walletClient } = useWalletClient();
 
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
@@ -637,7 +642,25 @@ const LeaderboardPage: React.FC = () => {
           functionName: 'getPlayerScoreForDay',
           args: [player, currentDay],
         }) as bigint;
-        return { player, score };
+        // Fetch name and fid from contract
+        let name: string | undefined = undefined;
+        let fid: string | undefined = undefined;
+        try {
+          name = await publicClient.readContract({
+            ...contract,
+            functionName: 'playerName',
+            args: [player],
+          }) as string;
+        } catch {}
+        try {
+          const fidRaw = await publicClient.readContract({
+            ...contract,
+            functionName: 'playerFID',
+            args: [player],
+          });
+          fid = (fidRaw !== undefined && fidRaw !== null) ? fidRaw.toString() : undefined;
+        } catch {}
+        return { player, score, name, fid };
       });
 
       const playerScores = await Promise.all(playerScoresPromises);
@@ -649,12 +672,14 @@ const LeaderboardPage: React.FC = () => {
 
       // Initial leaderboard with wallet addresses
       const initialLeaderboard: LeaderboardEntry[] = sortedPlayerScores
-        .map(({ player, score }, index) => ({
+        .map(({ player, score, name, fid }, index) => ({
           rank: index + 1,
           player,
           score: Number(score),
           displayName: undefined,
           avatar: undefined,
+          name,
+          fid,
         }));
 
       setLeaderboardData(initialLeaderboard);
@@ -786,7 +811,8 @@ const LeaderboardPage: React.FC = () => {
   //   return () => clearInterval(interval);
   // }, [fetchLeaderboard]);
 
-
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
 
   const handlePayEntryFee = async () => {
     if (!isConnected || !address) {
@@ -802,24 +828,35 @@ const LeaderboardPage: React.FC = () => {
       alert('Leaderboard contract address is not set. Please inform the developer.');
       return;
     }
-
-    // Secondary chain check before writing to contract
-    if (chainId !== monadTestnet.id) {
-      alert('CRITICAL: Transaction halted. You are not on the Monad Testnet. Please switch and try again.');
+    if (!walletClient) {
+      alert('No wallet client found. Please reconnect your wallet.');
       return;
     }
-
+    if (!currentDay) {
+      alert('Unable to fetch current day from contract.');
+      return;
+    }
+    setPaying(true);
+    setPayError(null);
     try {
-      resetWriteContract();
-      writeContract({
-        abi: LeaderboardABI,
-        address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
-        functionName: 'payEntryFee',
-        value: entryFeeAmount,
-      });
-    } catch (error) {
-      console.error('Error paying entry fee:', error);
+      // 1. Get signature from backend
+      const signature = await getLeaderboardSignature(address, currentDay.toString());
+      // 2. Get ethers.js signer from walletClient
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      // 3. Get contract instance
+      const contract = new ethers.Contract(LEADERBOARD_CONTRACT_ADDRESS, LeaderboardABI, signer);
+      // 4. Call payEntryFee with signature
+      const tx = await contract.payEntryFee(signature, { value: entryFeeAmount });
+      await tx.wait();
+      alert('Entry fee paid successfully!');
+      refetchHasPaid();
+      refetchPrizePool();
+    } catch (error: any) {
+      setPayError(error.message || 'Unknown error');
       alert(`Error paying entry fee: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -941,6 +978,12 @@ const LeaderboardPage: React.FC = () => {
                               </span>
                             )}
                           </span>
+                          {entry.name && (
+                            <span className={`text-[0.7rem] text-blue-300`}>Name: {entry.name}</span>
+                          )}
+                          {entry.fid && (
+                            <span className={`text-[0.7rem] text-purple-300`}>FID: {entry.fid}</span>
+                          )}
                           <span className={`font-bold text-[0.7rem] mt-0.5 ${textClass}`}>{entry.score} pts</span>
                         </div>
                       </div>
@@ -973,11 +1016,12 @@ const LeaderboardPage: React.FC = () => {
               <span className="text-white font-semibold">Buy Pass to Join</span>
               <Button 
                 onClick={handlePayEntryFee} 
-                disabled={isSendingEth || isConfirmingTx}
+                disabled={paying}
                 className="bg-indigo-500 hover:bg-indigo-600 text-white"
               >
-                {isSendingEth || isConfirmingTx ? 'Processing...' : `Buy (${formatEther(entryFeeAmount)} MON)`}
+                {paying ? 'Processing...' : `Buy (${formatEther(entryFeeAmount)} MON)`}
               </Button>
+              {payError && <div className="text-red-400 text-xs mt-2">{payError}</div>}
             </div>
           ) : (
             <div className="w-full flex items-center justify-between">
