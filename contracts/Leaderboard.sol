@@ -28,11 +28,15 @@ contract MonakeLeaderboard {
     address public signer;
     // Mapping from day to the actual prize awarded (for history)
     mapping(uint256 => uint256) public dailyPrizeAwarded;
-
+    // Mapping for player name 
     mapping(address => string) public playerName;
+    // Mapping for player FID
     mapping(address => uint256) public playerFID;
+    // Mapping for player snake colors
+    mapping(address => mapping(uint256 => bool)) public ownedSnakeColors;
 
     uint256 public currentDayTimestamp; // Timestamp for the start of the current day (00:00 UTC)
+    uint256 public constant SNAKE_COLOR_PRICE = 0.1 ether; // Price for each snake color
 
     event EntryFeePaid(address indexed player, uint256 amount, uint256 day);
     event ScoreSubmitted(address indexed player, uint256 score, uint256 day);
@@ -41,6 +45,7 @@ contract MonakeLeaderboard {
     event AllTimeHighScoreUpdated(address indexed player, uint256 newAllTimeHighScore);
     event SignerChanged(address indexed newSigner);
     event PrizePoolIncreased(uint256 day, uint256 amount);
+    event SnakeColorPurchased(address indexed player, uint256 colorId);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
@@ -299,5 +304,16 @@ contract MonakeLeaderboard {
         updateCurrentDayIfNeeded();
         dailyPrizePool[currentDayTimestamp] += msg.value;
         emit PrizePoolIncreased(currentDayTimestamp, msg.value);
+    }
+
+    function buySnakeColor(uint256 colorId) external payable {
+        require(msg.value == SNAKE_COLOR_PRICE, "Incorrect price");
+        require(!ownedSnakeColors[msg.sender][colorId], "Already owned");
+        ownedSnakeColors[msg.sender][colorId] = true;
+        emit SnakeColorPurchased(msg.sender, colorId);
+    }
+
+    function ownsSnakeColor(address player, uint256 colorId) external view returns (bool) {
+        return ownedSnakeColors[player][colorId];
     }
 }
