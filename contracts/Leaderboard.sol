@@ -9,6 +9,8 @@ contract MonakeLeaderboard {
         uint256 score;
         uint256 timestamp; // To track when the score was submitted
         bool hasPaidEntryFee; // Tracks if fee paid for the current day
+        string name;   // Add this
+        uint256 fid;   // And this
     }
 
     // Mapping from player address to their stats for the current day
@@ -23,6 +25,12 @@ contract MonakeLeaderboard {
     mapping(uint256 => uint256) public dailyPrizePool;
     // Mapping for player all-time high scores
     mapping(address => uint256) public playerAllTimeHighScore;
+    address public signer;
+    // Mapping from day to the actual prize awarded (for history)
+    mapping(uint256 => uint256) public dailyPrizeAwarded;
+
+    mapping(address => string) public playerName;
+    mapping(address => uint256) public playerFID;
 
     uint256 public currentDayTimestamp; // Timestamp for the start of the current day (00:00 UTC)
 
@@ -31,6 +39,8 @@ contract MonakeLeaderboard {
     event WinnerDeclared(address indexed winner, uint256 prizeAmount, uint256 day);
     event PrizePoolReset(uint256 oldDay, uint256 newDay); // oldDay is the day that ended, newDay is the current day
     event AllTimeHighScoreUpdated(address indexed player, uint256 newAllTimeHighScore);
+    event SignerChanged(address indexed newSigner);
+    event PrizePoolIncreased(uint256 day, uint256 amount);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
@@ -45,6 +55,7 @@ contract MonakeLeaderboard {
     constructor() {
         owner = msg.sender;
         currentDayTimestamp = getDayTimestamp(block.timestamp);
+        signer = msg.sender; // Default signer is owner, should be set to backend
     }
 
     function getDayTimestamp(uint256 timestamp) internal pure returns (uint256) {
@@ -89,9 +100,10 @@ contract MonakeLeaderboard {
         }
     }
 
-    function payEntryFee() external payable {
+    function payEntryFee(bytes calldata signature) external payable {
         updateCurrentDayIfNeeded();
         require(msg.value == entryFee, "Incorrect entry fee amount");
+        require(verifySignature(msg.sender, currentDayTimestamp, signature), "Invalid signature");
         
         uint256 today = currentDayTimestamp;
         PlayerStats storage playerStats = dailyPlayerStats[msg.sender];
@@ -112,8 +124,9 @@ contract MonakeLeaderboard {
         emit EntryFeePaid(msg.sender, msg.value, today);
     }
 
-    function submitScore(uint256 score) external feePaidForToday(msg.sender) {
+    function submitScore(uint256 score, bytes calldata signature) external feePaidForToday(msg.sender) {
         updateCurrentDayIfNeeded();
+        require(verifySignature(msg.sender, currentDayTimestamp, signature), "Invalid signature");
         uint256 today = currentDayTimestamp;
         PlayerStats storage playerStats = dailyPlayerStats[msg.sender];
 
@@ -160,6 +173,7 @@ contract MonakeLeaderboard {
 
         // Clear the prize pool for that day before sending to prevent re-entrancy issues with the transfer
         dailyPrizePool[dayToProcess] = 0;
+        dailyPrizeAwarded[dayToProcess] = prizeAmount; // Record awarded prize
         // isDayProcessedForPayout[dayToProcess] = true; // Mark as processed
 
         (bool success, ) = winner.call{value: prizeAmount}("");
@@ -243,5 +257,47 @@ contract MonakeLeaderboard {
 
     function setEntryFee(uint256 _newFee) external onlyOwner {
         entryFee = _newFee;
+    }
+
+    function setSigner(address _signer) external onlyOwner {
+        signer = _signer;
+        emit SignerChanged(_signer);
+    }
+
+    function setPlayerIdentity(string calldata name, uint256 fid) external {
+        playerName[msg.sender] = name;
+        playerFID[msg.sender] = fid;
+    }
+
+    // Helper to verify signature (user, day, signature)
+    function verifySignature(address user, uint256 day, bytes calldata signature) public view returns (bool) {
+        bytes32 message = keccak256(abi.encodePacked(user, day));
+        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", message));
+        (bytes32 r, bytes32 s, uint8 v) = splitSignature(signature);
+        address recovered = ecrecover(ethSignedMessageHash, v, r, s);
+        return recovered == signer;
+    }
+
+    function splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
+        require(sig.length == 65, "Invalid signature length");
+        assembly {
+            r := mload(add(sig, 32))
+            s := mload(add(sig, 64))
+            v := byte(0, mload(add(sig, 96)))
+        }
+    }
+
+    // View function to get winner and prize for a given day
+    function getWinnerAndPrize(uint256 day) external view returns (address winner, uint256 prize) {
+        winner = dailyWinner[day];
+        prize = dailyPrizeAwarded[day];
+    }
+
+    // Function to allow anyone to increase the current day's prize pool
+    function addToPrizePool() external payable {
+        require(msg.value > 0, "No ETH sent");
+        updateCurrentDayIfNeeded();
+        dailyPrizePool[currentDayTimestamp] += msg.value;
+        emit PrizePoolIncreased(currentDayTimestamp, msg.value);
     }
 }
