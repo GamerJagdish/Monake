@@ -85,8 +85,67 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   // Renaming writeContract for submitScore for clarity
   const { writeContract: submitScoreContract, isPending: isSubmittingScoreTx, data: submitScoreTxHash, reset: resetSubmitScoreTx, error: submitScoreTxError } = useWriteContract();
   const { writeContract: payEntryFeeContract, isPending: isPayingFee, data: payFeeDataHash, reset: resetPayFee, error: payFeeError } = useWriteContract();
-
+  const { writeContract: setPlayerIdentityContract, isPending: isSettingIdentity, data: setIdentityTxHash, reset: resetSetIdentity, error: setIdentityError } = useWriteContract();
   const [entryFeeAmount, setEntryFeeAmount] = useState<bigint>(parseEther('0.01'));
+  const { context: miniAppContext } = useMiniAppContext();
+  const farcasterUser = miniAppContext?.user;
+  const [playerName, setPlayerName] = useState<string>("");
+  const [playerFID, setPlayerFID] = useState<number | undefined>(undefined);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [pendingName, setPendingName] = useState("");
+  const [identitySet, setIdentitySet] = useState(false);
+  const { data: fetchedPlayerName } = useReadContract({
+    abi: LeaderboardABI,
+    address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+    functionName: 'playerName',
+    args: [address as `0x${string}`],
+    query: { enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE' }
+  });
+  const { data: fetchedPlayerFID } = useReadContract({
+    abi: LeaderboardABI,
+    address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+    functionName: 'playerFID',
+    args: [address as `0x${string}`],
+    query: { enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE' }
+  });
+  useEffect(() => {
+    if (typeof fetchedPlayerName === 'string') setPlayerName(fetchedPlayerName);
+    if (typeof fetchedPlayerFID === 'bigint') setPlayerFID(Number(fetchedPlayerFID));
+  }, [fetchedPlayerName, fetchedPlayerFID]);
+  const handleSetIdentity = async (name: string, fid: number) => {
+    resetSetIdentity();
+    setPlayerIdentityContract({
+      abi: LeaderboardABI,
+      address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+      functionName: 'setPlayerIdentity',
+      args: [name, fid],
+    });
+  };
+  const handleNameModalSubmit = async () => {
+    if (!pendingName) return;
+    let fid = farcasterUser?.fid || 0;
+    await handleSetIdentity(pendingName, fid);
+    setShowNameModal(false);
+    setIdentitySet(true);
+    setPlayerName(pendingName);
+    setPlayerFID(fid);
+  };
+  const checkAndPromptIdentity = async () => {
+    let name = playerName;
+    let fid = playerFID;
+    if ((!name || name.length === 0) || (farcasterUser && (!fid || fid === 0))) {
+      if (farcasterUser) {
+        setPendingName(farcasterUser.displayName || farcasterUser.username || "");
+        setShowNameModal(true);
+        return false;
+      } else {
+        setPendingName("");
+        setShowNameModal(true);
+        return false;
+      }
+    }
+    return true;
+  };
   // Renaming hasPaidEntryFee state to hasPaidForTodayForScoreSubmission for clarity within SnakeGame context
   const [hasPaidForTodayForScoreSubmission, setHasPaidForTodayForScoreSubmission] = useState<boolean>(false);
   const [isConfirmingFee, setIsConfirmingFee] = useState(false); // Added for fee confirmation tracking 
@@ -787,6 +846,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       setShowScoreSubmissionStatus(true);
       return;
     }
+    if (!(await checkAndPromptIdentity())) return;
     if (chainId !== monadTestnet.id) {
       try {
         setScoreSubmissionMessage('Switching to Monad Testnet to submit score...');
@@ -857,7 +917,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       setShowScoreSubmissionStatus(true);
       setIsAttemptingScoreSubmission(false);
     }
-  }, [isConnected, address, chainId, score, hasPaidForTodayForScoreSubmission, submitScoreContract, resetSubmitScoreTx, switchChain, setScoreSubmissionMessage, setShowScoreSubmissionStatus, setIsAttemptingScoreSubmission]);
+  }, [isConnected, address, chainId, score, hasPaidForTodayForScoreSubmission, submitScoreContract, resetSubmitScoreTx, switchChain, setScoreSubmissionMessage, setShowScoreSubmissionStatus, setIsAttemptingScoreSubmission, playerName, playerFID, farcasterUser]);
 
   // The old useEffect for submitScoreData and submitScoreError is removed as its logic is now in the
   // useEffects watching submitScoreTxHash, isLoadingScoreTxReceipt, isScoreTxSuccess, and submitScoreTxError (added in toolcall_3)
@@ -1327,6 +1387,28 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         </CardFooter>
         
       </Card>
+      {showNameModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+    <div className="bg-gray-900 p-6 rounded-lg shadow-lg w-80 flex flex-col items-center">
+      <h2 className="text-lg font-bold mb-2 text-white">Enter your name</h2>
+      <input
+        className="w-full p-2 rounded bg-gray-800 text-white border border-gray-700 mb-4"
+        value={pendingName}
+        onChange={e => setPendingName(e.target.value)}
+        placeholder="Your name"
+        maxLength={32}
+      />
+      <Button
+        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        onClick={handleNameModalSubmit}
+        disabled={!pendingName || isSettingIdentity}
+      >
+        {isSettingIdentity ? 'Saving...' : 'Save'}
+      </Button>
+      {setIdentityError && <p className="text-red-400 text-xs mt-2">{setIdentityError.message}</p>}
+    </div>
+  </div>
+)}
       <style jsx global>{`
         html, body, #__next, div#__next > div {
           height: 100%;
