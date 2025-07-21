@@ -16,6 +16,7 @@ import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 import { monadTestnet } from "viem/chains";
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
 import { sdk } from '@farcaster/frame-sdk';
+import { usePrivy } from "@privy-io/react-auth";
 // Define chain ID to name mapping
 const chainIdToName: Record<number, string> = {
   [monadTestnet.id]: 'Monad Testnet',
@@ -527,6 +528,7 @@ const MainMenu: React.FC = () => {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
+  const { login, ready, authenticated } = usePrivy();
 
   const { context: miniAppContext } = useMiniAppContext();
   const farcasterUser = miniAppContext?.user;
@@ -838,10 +840,22 @@ const MainMenu: React.FC = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
-                  if (connectors && connectors.length > 0) {
-                    connect({ connector: connectors[0] });
+                  if (farcasterUser) {
+                    // If Farcaster wallet is available, connect using wagmi
+                    if (connectors && connectors.length > 0) {
+                      connect({ connector: connectors[0] });
+                    } else {
+                      console.error('No connectors found.');
+                    }
                   } else {
-                    console.error('No connectors found.');
+                    // If no Farcaster wallet, show Privy wallet connect
+                    if (ready && !authenticated) {
+                      login();
+                    } else if (!ready) {
+                      alert("Privy is not ready yet. Please try again in a moment.");
+                    } else if (authenticated) {
+                      alert("You are already authenticated with Privy.");
+                    }
                   }
                 }}
                 className="w-full py-3 text-lg sm:text-xl bg-indigo-500 hover:bg-indigo-600 mt-3 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"

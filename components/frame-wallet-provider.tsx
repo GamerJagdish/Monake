@@ -1,7 +1,7 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { farcasterFrame } from "@farcaster/frame-wagmi-connector";
 import { injected } from "wagmi/connectors";
-import { createConfig, http, WagmiProvider } from "wagmi";
+import { createConfig, http } from "wagmi";
+import { WagmiProvider } from '@privy-io/wagmi';
 import { monadTestnet } from "wagmi/chains";
 
 export const config = createConfig({
@@ -15,8 +15,6 @@ export const config = createConfig({
   ],
 });
 
-const queryClient = new QueryClient();
-
 export default function FrameWalletProvider({
   children,
 }: {
@@ -24,7 +22,7 @@ export default function FrameWalletProvider({
 }) {
   return (
     <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      {children}
     </WagmiProvider>
   );
 }
