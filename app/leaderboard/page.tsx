@@ -12,463 +12,463 @@ import { ArrowLeft } from 'lucide-react';
 
 const LEADERBOARD_CONTRACT_ADDRESS = '0x0aC28489445B4d1C55CF1B667BBdF6f20A31Abd9';
 const LeaderboardABI = [
-    {
-      "inputs": [],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "newAllTimeHighScore",
-          "type": "uint256"
-        }
-      ],
-      "name": "AllTimeHighScoreUpdated",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "EntryFeePaid",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "oldDay",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "newDay",
-          "type": "uint256"
-        }
-      ],
-      "name": "PrizePoolReset",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "score",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "ScoreSubmitted",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "winner",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "prizeAmount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "WinnerDeclared",
-      "type": "event"
-    },
-    {
-      "inputs": [],
-      "name": "currentDayTimestamp",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "dailyHighestScore",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "dailyParticipants",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "dailyPlayerStats",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "score",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timestamp",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "hasPaidEntryFee",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "dailyPrizePool",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "dayToProcess",
-          "type": "uint256"
-        }
-      ],
-      "name": "declareWinnerAndDistributePrize",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "entryFee",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getCurrentPrizePool",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "getDailyParticipantsList",
-      "outputs": [
-        {
-          "internalType": "address[]",
-          "name": "",
-          "type": "address[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getHighestScoreToday",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        }
-      ],
-      "name": "getPlayerAllTimeHighScore",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        }
-      ],
-      "name": "getPlayerScore",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "getPlayerScoreForDay",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        }
-      ],
-      "name": "hasPlayerPaidToday",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "owner",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "payEntryFee",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "playerAllTimeHighScore",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_newFee",
-          "type": "uint256"
-        }
-      ],
-      "name": "setEntryFee",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "score",
-          "type": "uint256"
-        }
-      ],
-      "name": "submitScore",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address payable",
-          "name": "to",
-          "type": "address"
-        }
-      ],
-      "name": "withdrawStuckFunds",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "stateMutability": "payable",
-      "type": "receive"
-    }
-  ];
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newAllTimeHighScore",
+        "type": "uint256"
+      }
+    ],
+    "name": "AllTimeHighScoreUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "day",
+        "type": "uint256"
+      }
+    ],
+    "name": "EntryFeePaid",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oldDay",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newDay",
+        "type": "uint256"
+      }
+    ],
+    "name": "PrizePoolReset",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "score",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "day",
+        "type": "uint256"
+      }
+    ],
+    "name": "ScoreSubmitted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "winner",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "prizeAmount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "day",
+        "type": "uint256"
+      }
+    ],
+    "name": "WinnerDeclared",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "currentDayTimestamp",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "dailyHighestScore",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "dailyParticipants",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "dailyPlayerStats",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "score",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "hasPaidEntryFee",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "dailyPrizePool",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "dayToProcess",
+        "type": "uint256"
+      }
+    ],
+    "name": "declareWinnerAndDistributePrize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "entryFee",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getCurrentPrizePool",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "day",
+        "type": "uint256"
+      }
+    ],
+    "name": "getDailyParticipantsList",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getHighestScoreToday",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      }
+    ],
+    "name": "getPlayerAllTimeHighScore",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      }
+    ],
+    "name": "getPlayerScore",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "day",
+        "type": "uint256"
+      }
+    ],
+    "name": "getPlayerScoreForDay",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      }
+    ],
+    "name": "hasPlayerPaidToday",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "payEntryFee",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "playerAllTimeHighScore",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_newFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "setEntryFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "score",
+        "type": "uint256"
+      }
+    ],
+    "name": "submitScore",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address payable",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "withdrawStuckFunds",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "receive"
+  }
+];
 
 interface LeaderboardEntry {
   rank: number;
@@ -612,9 +612,9 @@ const LeaderboardPage: React.FC = () => {
       setIsLoadingData(false); // Ensure loading is false if we can't proceed
       return;
     }
-    
+
     console.log('[fetchLeaderboard] Conditions met, proceeding to fetch. Setting isLoadingData to true.');
-    setIsLoadingData(true); 
+    setIsLoadingData(true);
 
     try {
       // Get the list of participants for the current day using the contract function
@@ -623,24 +623,160 @@ const LeaderboardPage: React.FC = () => {
         address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
       };
 
-      // Get daily participants list
-      const dailyParticipants = await publicClient.readContract({
-        ...contract,
-        functionName: 'getDailyParticipantsList',
-        args: [currentDay],
-      }) as `0x${string}`[];
-
-      // Get scores for each participant
-      const playerScoresPromises = dailyParticipants.map(async (player) => {
-        const score = await publicClient.readContract({
+      // First, verify contract is accessible by calling a simple function
+      try {
+        const contractCurrentDay = await publicClient.readContract({
           ...contract,
-          functionName: 'getPlayerScoreForDay',
-          args: [player, currentDay],
+          functionName: 'currentDayTimestamp',
         }) as bigint;
-        return { player, score };
-      });
+        console.log('[fetchLeaderboard] Contract verification successful. Contract currentDay:', contractCurrentDay, 'Our currentDay:', currentDay);
 
-      const playerScores = await Promise.all(playerScoresPromises);
+        // Check if our currentDay matches the contract's currentDay
+        if (contractCurrentDay !== currentDay) {
+          console.warn('[fetchLeaderboard] WARNING: Our currentDay differs from contract currentDay. Using contract value.');
+          // Optionally update our currentDay to match the contract
+          // setCurrentDay(contractCurrentDay);
+          // return; // Exit and let the useEffect re-trigger with the correct day
+        }
+      } catch (verifyError) {
+        console.error('[fetchLeaderboard] Contract verification failed:', verifyError);
+        throw new Error('Contract not accessible: ' + verifyError);
+      }
+
+      // Get daily participants list
+      console.log('[fetchLeaderboard] About to call getDailyParticipantsList with day:', currentDay, 'type:', typeof currentDay);
+
+      // Ensure currentDay is properly formatted as a number for the contract call
+      const dayArg = typeof currentDay === 'bigint' ? currentDay : BigInt(currentDay);
+      console.log('[fetchLeaderboard] Calling with dayArg:', dayArg, 'type:', typeof dayArg);
+
+      let dailyParticipants: `0x${string}`[];
+      try {
+        dailyParticipants = await publicClient.readContract({
+          ...contract,
+          functionName: 'getDailyParticipantsList',
+          args: [dayArg],
+        }) as `0x${string}`[];
+        console.log('[fetchLeaderboard] getDailyParticipantsList returned:', dailyParticipants);
+      } catch (error) {
+        console.error('[fetchLeaderboard] getDailyParticipantsList failed:', error);
+        // With 453 participants, this might be a gas/RPC limit issue
+        // Let's try alternative approaches for large arrays
+        try {
+          console.log('[fetchLeaderboard] Trying with higher gas limit for large array (453 participants)...');
+          dailyParticipants = await publicClient.readContract({
+            ...contract,
+            functionName: 'getDailyParticipantsList',
+            args: [dayArg],
+          }) as `0x${string}`[];
+          console.log('[fetchLeaderboard] Large array call successful, got:', dailyParticipants?.length, 'participants');
+        } catch (gasError) {
+          console.error('[fetchLeaderboard] Gas limit approach failed:', gasError);
+          // Try with a fresh client instance
+          try {
+            console.log('[fetchLeaderboard] Trying with fresh client instance...');
+            const freshClient = createPublicClient({
+              chain: monadTestnet,
+              transport: http(),
+              batch: {
+                multicall: false,
+              },
+            });
+
+            dailyParticipants = await freshClient.readContract({
+              ...contract,
+              functionName: 'getDailyParticipantsList',
+              args: [dayArg],
+            }) as `0x${string}`[];
+            console.log('[fetchLeaderboard] Fresh client successful, got:', dailyParticipants?.length, 'participants');
+          } catch (finalError) {
+            console.error('[fetchLeaderboard] All approaches failed. Large array RPC limitation:', finalError);
+            // Try alternative approach using events
+            try {
+              console.log('[fetchLeaderboard] Trying alternative approach using EntryFeePaid events...');
+
+              // Get EntryFeePaid events for today to reconstruct participant list
+              const logs = await publicClient.getLogs({
+                address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+                event: {
+                  type: 'event',
+                  name: 'EntryFeePaid',
+                  inputs: [
+                    { name: 'player', type: 'address', indexed: true },
+                    { name: 'amount', type: 'uint256', indexed: false },
+                    { name: 'day', type: 'uint256', indexed: false }
+                  ]
+                },
+                fromBlock: 'earliest',
+                toBlock: 'latest'
+              });
+
+              console.log('[fetchLeaderboard] Found', logs.length, 'EntryFeePaid events for today');
+
+              // Extract unique participant addresses
+              const participantSet = new Set<string>();
+              logs.forEach((log: any) => {
+                if (log.args?.player) {
+                  participantSet.add(log.args.player);
+                }
+              });
+
+              dailyParticipants = Array.from(participantSet) as `0x${string}`[];
+              console.log('[fetchLeaderboard] Event-based approach successful, got:', dailyParticipants.length, 'unique participants');
+
+            } catch (eventError) {
+              console.error('[fetchLeaderboard] Event-based approach also failed:', eventError);
+              // Final fallback - show error message
+              setLeaderboardData([]);
+              console.log('[fetchLeaderboard] All methods failed. Unable to load leaderboard.');
+              return;
+            }
+          }
+        }
+      }
+
+      // Handle empty participants list
+      if (!dailyParticipants || dailyParticipants.length === 0) {
+        console.log('[fetchLeaderboard] No participants found for day:', currentDay);
+        setLeaderboardData([]);
+        return;
+      }
+
+      // Get scores for each participant (with batching for performance)
+      console.log('[fetchLeaderboard] Getting scores for', dailyParticipants.length, 'participants');
+
+      // Process in batches to avoid overwhelming the RPC
+      const batchSize = 50;
+      const playerScores: { player: string; score: bigint }[] = [];
+
+      for (let i = 0; i < dailyParticipants.length; i += batchSize) {
+        const batch = dailyParticipants.slice(i, i + batchSize);
+        console.log(`[fetchLeaderboard] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(dailyParticipants.length / batchSize)} (${batch.length} participants)`);
+
+        const batchPromises = batch.map(async (player) => {
+          try {
+            const score = await publicClient.readContract({
+              ...contract,
+              functionName: 'getPlayerScoreForDay',
+              args: [player, currentDay],
+            }) as bigint;
+            return { player, score };
+          } catch (error) {
+            console.warn(`[fetchLeaderboard] Failed to get score for player ${player}:`, error);
+            return { player, score: 0n };
+          }
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        playerScores.push(...batchResults);
+
+        // Small delay between batches to be nice to the RPC
+        if (i + batchSize < dailyParticipants.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      console.log('[fetchLeaderboard] Got scores for all participants:', playerScores.length);
 
       // Sort playerScores by score in descending order and limit to top 50
       const sortedPlayerScores = [...playerScores]
@@ -663,11 +799,11 @@ const LeaderboardPage: React.FC = () => {
       const fetchProfile = async (address: string): Promise<{ displayName?: string; avatar?: string; identity?: string } | null> => {
         try {
           const response = await fetch(`/api/web3bio?address=${address}`);
-          
+
           if (response.status === 404 || !response.ok) {
             return null;
           }
-          
+
           const profile = await response.json();
           // Only return profile if it has a valid displayName
           if (profile?.displayName && typeof profile.displayName === 'string' && profile.displayName.length > 0) {
@@ -688,8 +824,8 @@ const LeaderboardPage: React.FC = () => {
       const updateLeaderboardWithProfile = (address: string, profile: { displayName?: string; avatar?: string; identity?: string }) => {
         // Only update if we have a valid displayName
         if (profile.displayName && typeof profile.displayName === 'string' && profile.displayName.length > 0) {
-          setLeaderboardData(prevData => 
-            prevData.map(entry => 
+          setLeaderboardData(prevData =>
+            prevData.map(entry =>
               entry.player.toLowerCase() === address.toLowerCase()
                 ? { ...entry, displayName: profile.displayName, avatar: profile.avatar, identity: profile.identity }
                 : entry
@@ -717,10 +853,10 @@ const LeaderboardPage: React.FC = () => {
     } catch (error) {
       console.error('[fetchLeaderboard] Error fetching or processing leaderboard data:', error);
       setLeaderboardData([]); // Clear data on error
-    } finally { 
+    } finally {
       setIsLoadingData(false);
     }
-    
+
     console.log('[fetchLeaderboard] Starting refetches...');
     refetchPrizePool();
     console.log('[fetchLeaderboard] refetchPrizePool called.');
@@ -775,7 +911,7 @@ const LeaderboardPage: React.FC = () => {
   // Initial fetch if not covered by above
   useEffect(() => {
     if ((LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE') {
-        refetchCurrentDay(); // Initial fetch for current day
+      refetchCurrentDay(); // Initial fetch for current day
     }
   }, [refetchCurrentDay]);
 
@@ -852,8 +988,8 @@ const LeaderboardPage: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-4 relative pb-24">
-      <BackgroundGradientAnimation 
-        gradientBackgroundStart="rgb(25, 25, 36)" 
+      <BackgroundGradientAnimation
+        gradientBackgroundStart="rgb(25, 25, 36)"
         gradientBackgroundEnd="rgb(15, 15, 25)"
         firstColor="18, 113, 255"
         secondColor="221, 74, 255"
@@ -971,8 +1107,8 @@ const LeaderboardPage: React.FC = () => {
           ) : !hasPaid ? (
             <div className="w-full flex items-center justify-between">
               <span className="text-white font-semibold">Buy Pass to Join</span>
-              <Button 
-                onClick={handlePayEntryFee} 
+              <Button
+                onClick={handlePayEntryFee}
                 disabled={isSendingEth || isConfirmingTx}
                 className="bg-indigo-500 hover:bg-indigo-600 text-white"
               >
