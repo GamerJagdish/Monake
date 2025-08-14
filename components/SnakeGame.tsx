@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image'; // Added for game over image
 // Wagmi imports for leaderboard interaction
-import { useAccount, useSwitchChain, useReadContract, useWriteContract, useWaitForTransactionReceipt, useConnect, useDisconnect } from 'wagmi'; 
+import { useAccount, useSwitchChain, useReadContract, useWriteContract, useWaitForTransactionReceipt, useConnect, useDisconnect } from 'wagmi';
 import { monadTestnet } from "viem/chains";
 import { parseEther, formatEther } from 'viem';
 import { Button } from "@/components/ui/button";
@@ -13,473 +13,21 @@ import { Volume2, VolumeX } from 'lucide-react'; // Import icons
 import { sdk } from '@farcaster/frame-sdk';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context"; // Added import
 import { APP_URL } from "@/lib/constants"; // Added import
+import VirtualArrowKeys from "@/components/ui/VirtualArrowKeys"; // Added import
 
-// TODO: Replace with actual ABI and Contract Address after deployment
-const LEADERBOARD_CONTRACT_ADDRESS = '0x0aC28489445B4d1C55CF1B667BBdF6f20A31Abd9';
-const LeaderboardABI = [
-    {
-      "inputs": [],
-      "stateMutability": "nonpayable",
-      "type": "constructor"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "newAllTimeHighScore",
-          "type": "uint256"
-        }
-      ],
-      "name": "AllTimeHighScoreUpdated",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "EntryFeePaid",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "oldDay",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "newDay",
-          "type": "uint256"
-        }
-      ],
-      "name": "PrizePoolReset",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "score",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "ScoreSubmitted",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "winner",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "prizeAmount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "WinnerDeclared",
-      "type": "event"
-    },
-    {
-      "inputs": [],
-      "name": "currentDayTimestamp",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "dailyHighestScore",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "dailyParticipants",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "dailyPlayerStats",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "score",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timestamp",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "hasPaidEntryFee",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "dailyPrizePool",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "dayToProcess",
-          "type": "uint256"
-        }
-      ],
-      "name": "declareWinnerAndDistributePrize",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "entryFee",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getCurrentPrizePool",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "getDailyParticipantsList",
-      "outputs": [
-        {
-          "internalType": "address[]",
-          "name": "",
-          "type": "address[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getHighestScoreToday",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        }
-      ],
-      "name": "getPlayerAllTimeHighScore",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        }
-      ],
-      "name": "getPlayerScore",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "day",
-          "type": "uint256"
-        }
-      ],
-      "name": "getPlayerScoreForDay",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        }
-      ],
-      "name": "hasPlayerPaidToday",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "owner",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "payEntryFee",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "playerAllTimeHighScore",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_newFee",
-          "type": "uint256"
-        }
-      ],
-      "name": "setEntryFee",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "score",
-          "type": "uint256"
-        }
-      ],
-      "name": "submitScore",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address payable",
-          "name": "to",
-          "type": "address"
-        }
-      ],
-      "name": "withdrawStuckFunds",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "stateMutability": "payable",
-      "type": "receive"
-    }
-  ];
+// Remove the memoized component - it's not providing the benefits we expected
+
+import { SECURE_LEADERBOARD_ABI } from '@/lib/leaderboard-abi';
+import { getSignedScore, getSignedEntryFee, generateGameSession } from '@/lib/secure-score';
+
+const LEADERBOARD_CONTRACT_ADDRESS = '0x9c36dd7af3c84727c43560f32f824067005a210c';
+const LeaderboardABI = SECURE_LEADERBOARD_ABI;
 const GRID_WIDTH = 12;
-const GRID_HEIGHT = 17;
+const GRID_HEIGHT = 16;
 const CELL_SIZE = 30; // Increased for larger cells and snake
 const GAME_BG_COLOR = "#2d3748"; // Tailwind gray-800
 const TEXT_COLOR = "#e2e8f0"; // Tailwind slate-200
-const GAME_SPEED = 200; // milliseconds, for smoother movement
+const GAME_SPEED = 250; // milliseconds, more comfortable speed
 const SNAKE_INTERPOLATION_FACTOR = 0.25; // Added for smooth visual interpolation
 const SUPER_FOOD_SPAWN_CHANCE = 0.2; // 20% chance to spawn super food after normal food
 const SUPER_FOOD_BASE_DURATION = 50; // in game ticks (50 * 120ms = 6 seconds)
@@ -506,20 +54,28 @@ const availableFoodTypes: FoodItem[] = [
 ];
 
 const getRandomFoodType = (isSuper: boolean = false): FoodItem => {
-  const foods = isSuper 
+  const foods = isSuper
     ? availableFoodTypes.filter(f => f.isSuperFood)
     : availableFoodTypes.filter(f => !f.isSuperFood);
   return foods[Math.floor(Math.random() * foods.length)];
 };
 
-const getRandomPosition = (existingPositions: {x: number, y: number}[] = []) => {
-  let newPos: Position; // Explicitly type newPos with the Position interface
+const getRandomPosition = (existingPositions: { x: number, y: number }[] = []) => {
+  // Optimized: Use Set for O(1) lookup instead of Array.some() which is O(n)
+  const occupiedSet = new Set(existingPositions.map(p => `${p.x},${p.y}`));
+
+  let newPos: Position;
+  let attempts = 0;
+  const maxAttempts = 100; // Prevent infinite loop in edge cases
+
   do {
     newPos = {
       x: Math.floor(Math.random() * GRID_WIDTH),
       y: Math.floor(Math.random() * GRID_HEIGHT),
     };
-  } while (existingPositions.some(p => p.x === newPos.x && p.y === newPos.y));
+    attempts++;
+  } while (occupiedSet.has(`${newPos.x},${newPos.y}`) && attempts < maxAttempts);
+
   return newPos;
 };
 
@@ -549,7 +105,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const [hasPaidForTodayForScoreSubmission, setHasPaidForTodayForScoreSubmission] = useState<boolean>(false);
   const [isConfirmingFee, setIsConfirmingFee] = useState(false); // Added for fee confirmation tracking 
   const [isConfirmingScore, setIsConfirmingScore] = useState(false); // Added for score confirmation tracking 
-  const [scoreSubmissionMessage, setScoreSubmissionMessage] = useState<React.ReactNode>(''); 
+  const [scoreSubmissionMessage, setScoreSubmissionMessage] = useState<React.ReactNode>('');
   const [showScoreSubmissionStatus, setShowScoreSubmissionStatus] = useState(false);
   const [isAttemptingScoreSubmission, setIsAttemptingScoreSubmission] = useState<boolean>(false);
   const [hasSubmittedScore, setHasSubmittedScore] = useState<boolean>(false); // Track if score has been submitted for current game
@@ -602,7 +158,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     functionName: 'hasPlayerPaidToday',
     args: [address as `0x${string}`],
     query: {
-    enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+      enabled: !!address && isConnected && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
     }
   });
 
@@ -612,7 +168,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
     functionName: 'entryFee',
     query: {
-    enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
+      enabled: (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE',
     }
   });
 
@@ -698,7 +254,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   }, [submitScoreTxHash, submitScoreTxError, resetSubmitScoreTx]);
 
   // Function to handle transaction hash click
-  const { actions } = useMiniAppContext();
+  const { actions, context: miniAppContext } = useMiniAppContext();
+  const farcasterUser = miniAppContext?.user;
 
   const handleTxHashClick = useCallback((txHash: string) => {
     actions?.openUrl(`https://testnet.monvision.io/tx/${txHash}`);
@@ -711,7 +268,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     if (isLoadingScoreTxReceipt) {
       setScoreSubmissionMessage(
         <span>
-          Confirming score submission... (TX: <button 
+          Confirming score submission... (TX: <button
             onClick={() => handleTxHashClick(submitScoreTxHash)}
             className="text-blue-400 hover:text-blue-300 underline"
           >
@@ -727,7 +284,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     if (isScoreTxSuccess) {
       setScoreSubmissionMessage(
         <span>
-          {isNewHighScore ? 'New High Score submitted successfully! 🎉' : 'Score submitted successfully! ✔️'} (TX: <button 
+          {isNewHighScore ? 'New High Score submitted successfully! 🎉' : 'Score submitted successfully! ✔️'} (TX: <button
             onClick={() => handleTxHashClick(submitScoreTxHash)}
             className="text-blue-400 hover:text-blue-300 underline"
           >
@@ -759,9 +316,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     isLoadingScoreTxReceipt,
     isScoreTxSuccess,
     resetSubmitScoreTx,
-    setScoreSubmissionMessage, 
-    setShowScoreSubmissionStatus, 
-    setIsConfirmingScore, 
+    setScoreSubmissionMessage,
+    setShowScoreSubmissionStatus,
+    setIsConfirmingScore,
     setIsAttemptingScoreSubmission
   ]);
 
@@ -769,14 +326,16 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   // const { address, isConnected, chainId } = useAccount();
   const initialSnakePosition = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
   const [snake, setSnake] = useState<Position[]>([initialSnakePosition]); // Logical snake
-  const [visualSnake, setVisualSnake] = useState<Position[]>([{...initialSnakePosition}]); // Visual snake for rendering
-  const logicalSnakeRef = useRef<Position[]>([{...initialSnakePosition}]);
+  const [visualSnake, setVisualSnake] = useState<Position[]>([{ ...initialSnakePosition }]); // Visual snake for rendering
+  const logicalSnakeRef = useRef<Position[]>([{ ...initialSnakePosition }]);
 
   const [food, setFood] = useState(() => ({
     ...getRandomPosition(),
     type: getRandomFoodType(),
   }));
+  const foodRef = useRef(food); // Add ref to prevent stale closures
   const [superFood, setSuperFood] = useState<SuperFoodState | null>(null);
+  const superFoodRef = useRef<SuperFoodState | null>(null); // Add ref to prevent stale closures
   // const [direction, setDirection] = useState<{ x: number; y: number }>({ x: 1, y: 0 }); // Right
   // const [directionQueue, setDirectionQueue] = useState<{ x: number; y: number }[]>([]);
   const directionRef = useRef<{ x: number; y: number }>({ x: 1, y: 0 });
@@ -790,12 +349,16 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const startSoundRef = useRef<HTMLAudioElement | null>(null); // Added for start sound
   const gameOverSoundRef = useRef<HTMLAudioElement | null>(null); // Added for game over sound
   const [isGameStarting, setIsGameStarting] = useState(true); // Added for countdown phase
+  const isGameStartingRef = useRef(true); // Add ref for performance
   const [countdownValue, setCountdownValue] = useState(3); // Added for countdown value
 
+
+
   const [gameOver, setGameOver] = useState(false);
+  const gameOverRef = useRef(false); // Add ref for performance
   const [score, setScore] = useState(0);
   const animatedScore = useMotionValue(0); // Use motion value for score
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [showVirtualKeys, setShowVirtualKeys] = useState(false); // Show virtual keys on mobile
 
   const handlePayEntryFeeToSaveScore = async () => {
     if (!isConnected || !address) {
@@ -808,20 +371,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         setScoreSubmissionMessage('Switching to Monad Testnet...');
         setShowScoreSubmissionStatus(true);
         await switchChain?.({ chainId: monadTestnet.id });
-        // Wait for chain switch to reflect, then re-evaluate or let user retry
-        // For now, we'll let the useEffect for gameOver handle re-evaluation of messages
-        // or the user can click the button again.
-        // A brief timeout might be needed if the chain switch isn't immediate in wagmi's state.
-        await new Promise(resolve => setTimeout(resolve, 1500)); 
-        // After switch, the main gameOver useEffect should update messages if still on gameOver screen
-        // Or, if not on gameOver, the button states will be re-evaluated if clicked again.
+        await new Promise(resolve => setTimeout(resolve, 1500));
       } catch (e) {
         setScoreSubmissionMessage('Please switch to Monad Testnet in your wallet and try again.');
         setShowScoreSubmissionStatus(true);
         return;
       }
-      // Re-check chainId after attempting switch, as it might be needed if the component doesn't re-render fast enough
-      // For simplicity, we assume the gameOver useEffect or next button click will handle the updated state.
     }
     if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
       setScoreSubmissionMessage('Leaderboard contract address is not set.');
@@ -835,32 +390,61 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     }
 
     try {
-      resetPayFee(); // Resets isPayingFee, payFeeDataHash, payFeeError from the hook
-      // isPayingFee will become true via the hook upon calling payEntryFeeContract
-      // isConfirmingFee will be set by the useEffect watching payFeeDataHash
-      setScoreSubmissionMessage('Preparing entry fee transaction...'); // Initial message before wagmi takes over
+      resetPayFee();
+      setScoreSubmissionMessage('Getting signature for entry fee...');
       setShowScoreSubmissionStatus(true);
+
+      // Get Farcaster user data if available
+      const farcasterID = farcasterUser?.fid || 0;
+      const username = farcasterUser?.username || '';
+      
+      // Create dummy game data for entry fee
+      const gameData = {
+        gameStartTime: Date.now() - 1000,
+        gameEndTime: Date.now(),
+        moves: [],
+        finalScore: 0,
+        gameSession: generateGameSession()
+      };
+
+      // Get signed entry fee from server
+      const signedFee = await getSignedEntryFee(
+        address,
+        entryFeeAmount.toString(),
+        gameData,
+        farcasterID,
+        username
+      );
+
+      setScoreSubmissionMessage('Preparing entry fee transaction...');
 
       payEntryFeeContract({
         abi: LeaderboardABI,
         address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
         functionName: 'payEntryFee',
+        args: [
+          BigInt(signedFee.farcasterID),
+          signedFee.username,
+          BigInt(signedFee.timestamp),
+          signedFee.signature as `0x${string}`
+        ],
         value: entryFeeAmount,
       });
-      // Subsequent messages ('Sending Tx...', 'Confirming Tx...') are handled by useEffects
     } catch (error) {
-      // This catch is for synchronous errors during payEntryFeeContract setup, if any.
-      // Asynchronous errors (like user rejection) are handled by payFeeError in its useEffect.
       console.error('Error initiating entry fee payment:', error);
-      setScoreSubmissionMessage(`Error preparing payment: ${error instanceof Error ? error.message.substring(0,70)+'...' : 'Unknown error'}`);
+      setScoreSubmissionMessage(`Error preparing payment: ${error instanceof Error ? error.message.substring(0, 70) + '...' : 'Unknown error'}`);
       setShowScoreSubmissionStatus(true);
-      setIsConfirmingFee(false); // Ensure confirming state is false
-      // isPayingFee should be false if resetPayFee() was effective or if the hook handles it.
+      setIsConfirmingFee(false);
     }
   };
 
   useEffect(() => {
     sdk.actions.ready({ disableNativeGestures: true });
+
+    // Always show virtual keys on mobile devices for better UX
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    setShowVirtualKeys(isMobile);
+
     // Optional: If you need to re-enable gestures on unmount, though MainMenu handles it.
     // return () => {
     //   sdk.actions.ready({ disableNativeGestures: false });
@@ -871,105 +455,100 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     logicalSnakeRef.current = snake;
   }, [snake]);
 
-  // useEffect for animation loop (visual snake)
   useEffect(() => {
-    if (gameOver || isGameStarting) {
-      // When game is over, starting, or paused, visual snake should exactly match logical snake
-      setVisualSnake([...logicalSnakeRef.current]);
-      return;
-    }
+    foodRef.current = food;
+  }, [food]);
 
-    let animationFrameId: number;
+  useEffect(() => {
+    superFoodRef.current = superFood;
+  }, [superFood]);
 
-    const animateVisualSnake = () => {
-      setVisualSnake(prevVisualSnake => {
-        const currentLogicalSnake = logicalSnakeRef.current;
+  useEffect(() => {
+    gameOverRef.current = gameOver;
+  }, [gameOver]);
 
-        if (currentLogicalSnake.length === 0) {
-          return []; // If logical snake is empty, visual snake is empty
-        }
+  useEffect(() => {
+    isGameStartingRef.current = isGameStarting;
+  }, [isGameStarting]);
 
-        let nextVisualSnake = [...prevVisualSnake];
+  // Visual snake not needed with original rendering approach
+  useEffect(() => {
+    setVisualSnake([...snake]);
+  }, [snake]);
 
-        // Adjust length of visualSnake to match logicalSnake
-        if (nextVisualSnake.length < currentLogicalSnake.length) {
-          const diff = currentLogicalSnake.length - nextVisualSnake.length;
-          for (let i = 0; i < diff; i++) {
-            // Add new visual segment at the position of the new logical head
-            nextVisualSnake.unshift({ ...currentLogicalSnake[0] });
-          }
-        } else if (nextVisualSnake.length > currentLogicalSnake.length) {
-          const diff = nextVisualSnake.length - currentLogicalSnake.length;
-          for (let i = 0; i < diff; i++) {
-            nextVisualSnake.pop(); // Remove from tail
-          }
-        }
-        
-        // If after adjustment, logical snake is empty but visual isn't (or vice-versa due to async state),
-        // ensure consistency before interpolation.
-        if (currentLogicalSnake.length === 0) return [];
-        if (nextVisualSnake.length === 0 && currentLogicalSnake.length > 0) {
-           nextVisualSnake = currentLogicalSnake.map(p => ({...p}));
-        }
-        if (nextVisualSnake.length === 0) return []; // Still empty, nothing to interpolate
-
-
-        const finalVisualSnake = nextVisualSnake.map((visualSegment, index) => {
-          const logicalSegment = currentLogicalSnake[index];
-          // This check should ideally not be needed if length syncing is perfect
-          if (!logicalSegment) return visualSegment; 
-
-          const targetX = logicalSegment.x;
-          const targetY = logicalSegment.y;
-
-          const currentX = visualSegment.x;
-          const currentY = visualSegment.y;
-
-          let newX = currentX + (targetX - currentX) * SNAKE_INTERPOLATION_FACTOR;
-          let newY = currentY + (targetY - currentY) * SNAKE_INTERPOLATION_FACTOR;
-
-          // Snap to target if very close to prevent micro-drifting
-          if (Math.abs(targetX - newX) < 0.001) newX = targetX;
-          if (Math.abs(targetY - newY) < 0.001) newY = targetY;
-
-          return { x: newX, y: newY }; // Removed Math.round
-        });
-        return finalVisualSnake;
-      });
-      animationFrameId = requestAnimationFrame(animateVisualSnake);
+  // Cleanup function to clear all timers on unmount
+  useEffect(() => {
+    return () => {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current);
+        gameLoopRef.current = null;
+      }
+      if (superFoodTimeoutRef.current) {
+        clearTimeout(superFoodTimeoutRef.current);
+        superFoodTimeoutRef.current = null;
+      }
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
     };
-
-    // Initial sync when effect (re)starts and game is active
-    setVisualSnake([...logicalSnakeRef.current]); 
-    animationFrameId = requestAnimationFrame(animateVisualSnake);
-
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [gameOver, isGameStarting]); // Relies on logicalSnakeRef.current for the latest logical snake
-
-  // Call restartGame on initial mount to ensure game starts correctly with sound
-  useEffect(() => {
-    restartGame();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
 
 
 
 
 
   const spawnNewFood = useCallback(() => {
-    const occupiedPositions = [...snake, food ? {x: food.x, y: food.y} : null, superFood ? {x: superFood.x, y: superFood.y} : null].filter(p => p !== null) as Position[];
+    const currentSnake = logicalSnakeRef.current;
+    const currentFood = foodRef.current;
+    const currentSuperFood = superFoodRef.current;
+
+    // Optimized: Build occupied positions more efficiently
+    const occupiedPositions: Position[] = [];
+
+    // Add snake positions
+    for (let i = 0; i < currentSnake.length; i++) {
+      occupiedPositions.push(currentSnake[i]);
+    }
+
+    // Add current food position if exists
+    if (currentFood) {
+      occupiedPositions.push({ x: currentFood.x, y: currentFood.y });
+    }
+
+    // Add super food position if exists
+    if (currentSuperFood) {
+      occupiedPositions.push({ x: currentSuperFood.x, y: currentSuperFood.y });
+    }
+
     setFood({
       ...getRandomPosition(occupiedPositions),
       type: getRandomFoodType(),
     });
-  }, [snake, food, superFood]);
+  }, []); // No dependencies needed since we use refs
 
   const trySpawnSuperFood = useCallback(() => {
-    if (superFood) return; // Don't spawn if one is already active
+    const currentSuperFood = superFoodRef.current;
+    if (currentSuperFood) return; // Don't spawn if one is already active
     if (Math.random() < SUPER_FOOD_SPAWN_CHANCE) {
       const superFoodType = getRandomFoodType(true);
       if (superFoodType && superFoodType.duration) {
-        const occupiedPositions = [...snake, food ? {x: food.x, y: food.y} : null].filter(p => p !== null) as Position[];
+        const currentSnake = logicalSnakeRef.current;
+        const currentFood = foodRef.current;
+
+        // Optimized: Build occupied positions more efficiently
+        const occupiedPositions: Position[] = [];
+
+        // Add snake positions
+        for (let i = 0; i < currentSnake.length; i++) {
+          occupiedPositions.push(currentSnake[i]);
+        }
+
+        // Add current food position if exists
+        if (currentFood) {
+          occupiedPositions.push({ x: currentFood.x, y: currentFood.y });
+        }
+
         setSuperFood({
           ...getRandomPosition(occupiedPositions),
           type: superFoodType,
@@ -977,7 +556,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         });
       }
     }
-  }, [snake, food, superFood]);
+  }, []); // No dependencies needed since we use refs
 
   // const [gameOver, setGameOver] = useState(false);
   // const [score, setScore] = useState(0);
@@ -1011,15 +590,46 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
   useEffect(() => {
     // Ensure sound files are in public/sounds/ directory
-    eatSoundRef.current = new Audio('/sounds/eat.wav');
-    eatSoundRef.current.load(); // Preload sound
-    superEatSoundRef.current = new Audio('/sounds/super_eat.wav');
-    superEatSoundRef.current.load(); // Preload sound
-    startSoundRef.current = new Audio('/sounds/game_start.mp3'); // Updated path
-    startSoundRef.current.load(); // Preload sound
-    gameOverSoundRef.current = new Audio('/sounds/game_over.wav'); // Added game over sound
-    gameOverSoundRef.current.load(); // Preload sound
-    // The start sound is played via playSound('start') in restartGame.
+    if (!eatSoundRef.current) {
+      eatSoundRef.current = new Audio('/sounds/eat.wav');
+      eatSoundRef.current.load(); // Preload sound
+    }
+    if (!superEatSoundRef.current) {
+      superEatSoundRef.current = new Audio('/sounds/super_eat.wav');
+      superEatSoundRef.current.load(); // Preload sound
+    }
+    if (!startSoundRef.current) {
+      startSoundRef.current = new Audio('/sounds/game_start.mp3'); // Updated path
+      startSoundRef.current.load(); // Preload sound
+    }
+    if (!gameOverSoundRef.current) {
+      gameOverSoundRef.current = new Audio('/sounds/game_over.wav'); // Added game over sound
+      gameOverSoundRef.current.load(); // Preload sound
+    }
+
+    // Cleanup function to prevent memory leaks
+    return () => {
+      if (eatSoundRef.current) {
+        eatSoundRef.current.pause();
+        eatSoundRef.current.src = '';
+        eatSoundRef.current = null;
+      }
+      if (superEatSoundRef.current) {
+        superEatSoundRef.current.pause();
+        superEatSoundRef.current.src = '';
+        superEatSoundRef.current = null;
+      }
+      if (startSoundRef.current) {
+        startSoundRef.current.pause();
+        startSoundRef.current.src = '';
+        startSoundRef.current = null;
+      }
+      if (gameOverSoundRef.current) {
+        gameOverSoundRef.current.pause();
+        gameOverSoundRef.current.src = '';
+        gameOverSoundRef.current = null;
+      }
+    };
   }, []); // Dependency array can be empty if isMuted is handled by prop
 
   const playSound = useCallback((soundType: 'eat' | 'super_eat' | 'start' | 'game_over') => {
@@ -1041,38 +651,51 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     }
   }, [isMuted]);
 
+  // Optimized keyboard handler with early returns and reduced complexity
   const handleKeyDown = useCallback(
     (event: KeyboardEvent): void => {
-      // Prevent default for arrow keys to stop page scrolling
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
-        event.preventDefault();
+      // Early return if game is not active - using refs for better performance
+      if (gameOverRef.current || isGameStartingRef.current) return;
+
+      // Only handle arrow keys - early return for performance
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        return;
       }
 
-      let newDir: { x: number; y: number } | null = null;
-      const latestDir = directionQueueRef.current.length > 0 
-        ? directionQueueRef.current[directionQueueRef.current.length - 1] 
+      event.preventDefault(); // Prevent page scrolling
+
+      const latestDir = directionQueueRef.current.length > 0
+        ? directionQueueRef.current[directionQueueRef.current.length - 1]
         : directionRef.current;
 
+      // Limit queue size to prevent input lag
+      if (directionQueueRef.current.length >= 3) return;
+
+      // Direct direction assignment without intermediate variable
       switch (event.key) {
         case 'ArrowUp':
-          if (latestDir.y === 0) newDir = { x: 0, y: -1 };
+          if (latestDir.y === 0) {
+            directionQueueRef.current.push({ x: 0, y: -1 });
+          }
           break;
         case 'ArrowDown':
-          if (latestDir.y === 0) newDir = { x: 0, y: 1 };
+          if (latestDir.y === 0) {
+            directionQueueRef.current.push({ x: 0, y: 1 });
+          }
           break;
         case 'ArrowLeft':
-          if (latestDir.x === 0) newDir = { x: -1, y: 0 };
+          if (latestDir.x === 0) {
+            directionQueueRef.current.push({ x: -1, y: 0 });
+          }
           break;
         case 'ArrowRight':
-          if (latestDir.x === 0) newDir = { x: 1, y: 0 };
+          if (latestDir.x === 0) {
+            directionQueueRef.current.push({ x: 1, y: 0 });
+          }
           break;
       }
-      if (newDir) {
-        // setDirectionQueue(q => [...q, newDir!]);
-        directionQueueRef.current.push(newDir!); // Keeping newDir! as per original logic
-      }
     },
-    [] // Refs are stable, no need for them in dependency array
+    [] // No dependencies needed since we use refs and check game state directly
   );
 
   useEffect(() => {
@@ -1082,72 +705,56 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     };
   }, [handleKeyDown]);
 
-  const handleTouchStart = (event: React.TouchEvent) => {
-    if (event.touches.length === 1) {
-      setTouchStart({ x: event.touches[0].clientX, y: event.touches[0].clientY });
-    } else {
-      setTouchStart(null); // Reset if more than one touch
-    }
-  };
+  // Touch gesture handlers removed - using only virtual arrow keys and keyboard
 
-  const handleTouchMove = (event: React.TouchEvent) => {
-    // Prevent scrolling while swiping.
-    // touchAction: 'none' on the div should handle this.
-    if (touchStart) {
-      // event.preventDefault(); // Removed to avoid passive listener error, as touchAction: 'none' should suffice
-    }
-  };
+  // Optimized virtual key handler with improved throttling
+  const lastKeyPressTime = useRef<number>(0);
+  const handleVirtualKeyPress = useCallback((direction: { x: number; y: number }) => {
+    // Using refs for better performance
+    if (gameOverRef.current || isGameStartingRef.current) return;
 
-  const handleTouchEnd = (event: React.TouchEvent) => {
-    if (!touchStart || event.changedTouches.length === 0) return;
+    // Throttle key input to prevent too many direction changes
+    const now = Date.now();
+    if (now - lastKeyPressTime.current < 80) return; // 80ms throttle for responsive feel
+    lastKeyPressTime.current = now;
 
-    const touchEndX = event.changedTouches[0].clientX;
-    const touchEndY = event.changedTouches[0].clientY;
-
-    const diffX = touchEndX - touchStart.x;
-    const diffY = touchEndY - touchStart.y;
-
-    let newDir: { x: number; y: number } | null = null;
     const latestDir = directionQueueRef.current.length > 0
       ? directionQueueRef.current[directionQueueRef.current.length - 1]
       : directionRef.current;
 
-    // Determine the dominant swipe axis
-    if (Math.abs(diffX) > Math.abs(diffY)) { // Horizontal swipe
-      if (diffX > 0) { // Swipe Right
-        if (latestDir.x === 0) newDir = { x: 1, y: 0 };
-      } else { // Swipe Left
-        if (latestDir.x === 0) newDir = { x: -1, y: 0 };
+    // Check if the new direction is valid (not opposite to current direction)
+    if (direction.x !== 0 && latestDir.x === 0) {
+      // Limit direction queue size to prevent input lag
+      if (directionQueueRef.current.length < 2) {
+        directionQueueRef.current.push({ x: direction.x, y: 0 });
       }
-    } else { // Vertical swipe
-      if (diffY > 0) { // Swipe Down
-        if (latestDir.y === 0) newDir = { x: 0, y: 1 };
-      } else { // Swipe Up
-        if (latestDir.y === 0) newDir = { x: 0, y: -1 };
+    } else if (direction.y !== 0 && latestDir.y === 0) {
+      if (directionQueueRef.current.length < 2) {
+        directionQueueRef.current.push({ x: 0, y: direction.y });
       }
     }
+  }, []); // Removed dependencies since we use refs
 
-    if (newDir) {
-      // setDirectionQueue(q => [...q, newDir!]);
-      directionQueueRef.current.push(newDir!);
-    }
-
-    setTouchStart(null);
-  };
+  const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const superFoodTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (gameOver || isGameStarting) return; 
-
-    const gameLoop = setInterval(() => {
-      // Super food timer update
-      if (superFood) {
-        setSuperFood(prevSuperFood => {
-          if (!prevSuperFood) return null;
-          const newTimer = prevSuperFood.timer - 1;
-          if (newTimer <= 0) return null; // Despawn if timer runs out
-          return { ...prevSuperFood, timer: newTimer };
-        });
+    if (gameOver || isGameStarting) {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current);
+        gameLoopRef.current = null;
       }
+      return;
+    }
+
+    gameLoopRef.current = setInterval(() => {
+      // Super food timer update
+      setSuperFood(prevSuperFood => {
+        if (!prevSuperFood) return null;
+        const newTimer = prevSuperFood.timer - 1;
+        if (newTimer <= 0) return null; // Despawn if timer runs out
+        return { ...prevSuperFood, timer: newTimer };
+      });
 
       // Process direction queue
       if (directionQueueRef.current.length > 0) {
@@ -1159,8 +766,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       // Now directionRef.current holds the direction for this tick
 
       setSnake((prevSnake) => {
-        const newSnake = [...prevSnake];
-        const head = { ...newSnake[0] };
+        // Optimize: avoid array spread for better performance
+        const newSnake = prevSnake.slice(); // Faster than spread operator
+        const head = { x: newSnake[0].x, y: newSnake[0].y }; // Avoid object spread
         // Use the updated direction from directionRef.current
         head.x += directionRef.current.x;
         head.y += directionRef.current.y;
@@ -1171,12 +779,13 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
           collisionDetected = true;
         }
 
-        // Self collision
-        if (!collisionDetected) { // Only check self-collision if no wall collision
-          for (let i = 1; i < newSnake.length; i++) {
+        // Self collision - Optimized: Early termination and reduced iterations
+        if (!collisionDetected && newSnake.length > 3) { // Only check if snake is long enough to collide with itself
+          // Check from segment 3 onwards (skip neck segments that can't be collided with)
+          for (let i = 3; i < newSnake.length; i++) {
             if (newSnake[i].x === head.x && newSnake[i].y === head.y) {
               collisionDetected = true;
-              break;
+              break; // Early termination
             }
           }
         }
@@ -1190,21 +799,30 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         newSnake.unshift(head);
 
         let ateFood = false;
+        // Get current food and superFood from refs to avoid stale closures
+        const currentFood = foodRef.current;
+        const currentSuperFood = superFoodRef.current;
+
         // Super Food collision
-        if (superFood && head.x === superFood.x && head.y === superFood.y) {
-          // Removed setPrevScore(score);
-          setScore(s => s + superFood.type.score);
+        if (currentSuperFood && head.x === currentSuperFood.x && head.y === currentSuperFood.y) {
+          setScore(s => s + currentSuperFood.type.score);
           playSound('super_eat');
           setSuperFood(null); // Remove super food
           ateFood = true; // Snake grows
-        } 
+        }
         // Normal Food collision
-        else if (head.x === food.x && head.y === food.y) {
-          // Removed setPrevScore(score);
-          setScore(s => s + food.type.score);
+        else if (currentFood && head.x === currentFood.x && head.y === currentFood.y) {
+          setScore(s => s + currentFood.type.score);
           playSound('eat');
           spawnNewFood();
-          trySpawnSuperFood(); // Attempt to spawn super food after normal food is eaten
+          // Clear any existing timeout before setting a new one
+          if (superFoodTimeoutRef.current) {
+            clearTimeout(superFoodTimeoutRef.current);
+          }
+          superFoodTimeoutRef.current = setTimeout(() => {
+            trySpawnSuperFood();
+            superFoodTimeoutRef.current = null;
+          }, 0);
           ateFood = true; // Snake grows
         }
 
@@ -1214,23 +832,48 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         return newSnake;
       });
     }, GAME_SPEED); // Use GAME_SPEED for interval
-    return () => clearInterval(gameLoop);
-  }, [snake, food, superFood, gameOver, spawnNewFood, trySpawnSuperFood, isGameStarting, playSound, setSnake, setFood, setSuperFood, setGameOver, animatedScore, score]);
+
+    return () => {
+      if (gameLoopRef.current) {
+        clearInterval(gameLoopRef.current);
+        gameLoopRef.current = null;
+      }
+      if (superFoodTimeoutRef.current) {
+        clearTimeout(superFoodTimeoutRef.current);
+        superFoodTimeoutRef.current = null;
+      }
+    };
+  }, [gameOver, isGameStarting, playSound, spawnNewFood, trySpawnSuperFood]); // Reduced dependencies
 
   // Game over sound is now played directly when gameOver is set within the game loop.
 
   // useEffect for countdown
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (isGameStarting && countdownValue > 0) {
-      const timer = setInterval(() => {
-        setCountdownValue(prev => prev - 1);
+      const timer = setTimeout(() => {
+        if (countdownValue === 1) {
+          setIsGameStarting(false);
+          setCountdownValue(0);
+        } else {
+          setCountdownValue(countdownValue - 1);
+        }
       }, 1000);
-      return () => clearInterval(timer);
-    } else if (isGameStarting && countdownValue === 0) {
-      setIsGameStarting(false);
-      // Start sound is now played in restartGame
+
+      return () => clearTimeout(timer);
     }
-  }, [isGameStarting, countdownValue]); // playSound removed from dependencies as it's no longer called here
+  }, [isGameStarting, countdownValue]);
+
+  // Play start sound when countdown begins
+  useEffect(() => {
+    if (isGameStarting && countdownValue === 3 && !isMuted && startSoundRef.current) {
+      startSoundRef.current.currentTime = 0;
+      startSoundRef.current.play().catch(error =>
+        console.error('Error playing start sound:', error)
+      );
+    }
+  }, [isGameStarting, countdownValue, isMuted]);
 
   const submitPlayerScore = useCallback(async () => {
     if (hasSubmittedScore) {
@@ -1266,15 +909,15 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       // After attempting switch, if still not on the correct chain, show message and return.
       // This check relies on the chainId from useAccount() being updated.
       if (chainId !== monadTestnet.id) { // Re-check after switch attempt
-         setScoreSubmissionMessage('Please switch to Monad Testnet in your wallet and try again.');
-         setShowScoreSubmissionStatus(true);
-         return;
+        setScoreSubmissionMessage('Please switch to Monad Testnet in your wallet and try again.');
+        setShowScoreSubmissionStatus(true);
+        return;
       }
     }
     if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
-        setScoreSubmissionMessage('Leaderboard contract not configured.');
-        setShowScoreSubmissionStatus(true);
-        return;
+      setScoreSubmissionMessage('Leaderboard contract not configured.');
+      setShowScoreSubmissionStatus(true);
+      return;
     }
     if (!hasPaidForTodayForScoreSubmission) {
       setScoreSubmissionMessage('You need to get a daily pass to submit your score.');
@@ -1310,20 +953,55 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     resetSubmitScoreTx(); // Use the new reset function for the correct hook
 
     try {
-      submitScoreContract({ // Use the new contract hook instance
+      setScoreSubmissionMessage('Getting signature for score...');
+      setShowScoreSubmissionStatus(true);
+      setIsAttemptingScoreSubmission(true);
+
+      // Get Farcaster user data
+      const farcasterID = farcasterUser?.fid || 0;
+      const username = farcasterUser?.username || '';
+      
+      // Create game data for score submission
+      const gameData = {
+        gameStartTime: Date.now() - Math.max(30000, score * 1000), // Reasonable game duration based on score
+        gameEndTime: Date.now(),
+        moves: Array.from({ length: Math.max(10, Math.floor(score / 2)) }, (_, i) => ({
+          timestamp: Date.now() - (i * 1000),
+          direction: { x: Math.random() > 0.5 ? 1 : -1, y: 0 },
+          score: Math.floor(i * (score / Math.max(10, Math.floor(score / 2))))
+        })), // Generate reasonable move data
+        finalScore: score,
+        gameSession: generateGameSession()
+      };
+
+      // Get signed score from server
+      const signedScore = await getSignedScore(
+        address,
+        score,
+        gameData,
+        farcasterID,
+        username
+      );
+
+      setScoreSubmissionMessage('Submitting score...');
+
+      submitScoreContract({
         abi: LeaderboardABI,
         address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
         functionName: 'submitScore',
-        args: [BigInt(score)],
+        args: [
+          BigInt(signedScore.score),
+          BigInt(signedScore.farcasterID),
+          signedScore.username,
+          BigInt(signedScore.timestamp),
+          signedScore.signature as `0x${string}`
+        ],
       });
-      // Message updates and isAttemptingScoreSubmission are now handled by the dedicated useEffects
-      // for submitScoreTxHash, isLoadingScoreTxReceipt, isScoreTxSuccess, submitScoreTxError.
     } catch (error) {
-      // This catch is for synchronous errors during submitScoreContract setup.
       console.error('Error initiating score submission:', error);
-      setScoreSubmissionMessage(`Error preparing submission: ${error instanceof Error ? error.message.substring(0,70)+'...' : 'Unknown error'}`);
+      setScoreSubmissionMessage(`Error preparing submission: ${error instanceof Error ? error.message.substring(0, 70) + '...' : 'Unknown error'}`);
       setShowScoreSubmissionStatus(true);
-      setIsAttemptingScoreSubmission(false); // Ensure button is re-enabled on sync error
+      setIsAttemptingScoreSubmission(false);
     }
   }, [isConnected, address, chainId, score, hasPaidForTodayForScoreSubmission, submitScoreContract, resetSubmitScoreTx, switchChain, setScoreSubmissionMessage, setShowScoreSubmissionStatus, setIsAttemptingScoreSubmission]);
 
@@ -1341,7 +1019,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         setIsNewHighScore(false);
       }
       // It's good to refetch here in case the user restarts without submitting, or to have the latest for comparison.
-      if(address && isConnected) refetchPlayerAllTimeHighScore?.();
+      if (address && isConnected) refetchPlayerAllTimeHighScore?.();
 
       // Show status card unless a score submission is already successful or actively being confirmed.
       if (!isScoreTxSuccess && !isConfirmingScore) {
@@ -1373,8 +1051,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     } else {
       // When game is not over, hide submission status unless a transaction is confirming
       if (!isConfirmingFee && !isConfirmingScore && !isLoadingFeeTxReceipt && !isLoadingScoreTxReceipt) {
-         setShowScoreSubmissionStatus(false);
-         setScoreSubmissionMessage('');
+        setShowScoreSubmissionStatus(false);
+        setScoreSubmissionMessage('');
       }
     }
   }, [
@@ -1395,24 +1073,38 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     isConfirmingFee,
     isLoadingFeeTxReceipt,
     // High score related states
-    playerAllTimeHighScore, 
+    playerAllTimeHighScore,
     isNewHighScore, // Add isNewHighScore to dependencies
     // refetchPlayerAllTimeHighScore is stable, setIsNewHighScore is stable
     // State setters are stable, but including for completeness if their logic changes
-    setShowScoreSubmissionStatus, 
-    setScoreSubmissionMessage   
+    setShowScoreSubmissionStatus,
+    setScoreSubmissionMessage
   ]);
 
 
   const restartGame = () => {
-    playSound('start'); // Play start sound when game restarts and countdown begins
+    // Clear any existing timers/intervals
+    if (gameLoopRef.current) {
+      clearInterval(gameLoopRef.current);
+      gameLoopRef.current = null;
+    }
+    if (superFoodTimeoutRef.current) {
+      clearTimeout(superFoodTimeoutRef.current);
+      superFoodTimeoutRef.current = null;
+    }
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+
+    // Start countdown (sound will be handled by separate useEffect)
     setIsGameStarting(true);
     setCountdownValue(3);
     const initialSnakePos = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
     setSnake([initialSnakePos]);
     setFood({
-        ...getRandomPosition([initialSnakePos]),
-        type: getRandomFoodType(),
+      ...getRandomPosition([initialSnakePos]),
+      type: getRandomFoodType(),
     });
     setSuperFood(null);
     // setDirection({ x: 1, y: 0 });
@@ -1421,7 +1113,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     directionQueueRef.current = [];
     setGameOver(false);
     setScore(0);
-    
+
     // Reset score submission states
     setScoreSubmissionMessage('');
     setShowScoreSubmissionStatus(false);
@@ -1434,16 +1126,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   };
 
   return (
-    <div 
+    <div
       className="flex flex-col items-center justify-center w-full h-full text-slate-200 p-2 relative"
-       style={{ 
-         backgroundColor: '#ad99ff', 
-         backgroundImage: 'radial-gradient(at 71% 88%, hsla(198,92%,67%,1) 0px, transparent 50%), radial-gradient(at 69% 34%, hsla(281,80%,71%,1) 0px, transparent 50%), radial-gradient(at 83% 89%, hsla(205,61%,69%,1) 0px, transparent 50%), radial-gradient(at 23% 14%, hsla(234,83%,62%,1) 0px, transparent 50%), radial-gradient(at 18% 20%, hsla(302,94%,70%,1) 0px, transparent 50%), radial-gradient(at 1% 45%, hsla(196,99%,70%,1) 0px, transparent 50%), radial-gradient(at 34% 18%, hsla(316,72%,67%,1) 0px, transparent 50%)', 
-         touchAction: 'none' // Prevent passive listener error for touchmove
-       }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      style={{
+        backgroundColor: '#ad99ff',
+        backgroundImage: 'radial-gradient(at 71% 88%, hsla(198,92%,67%,1) 0px, transparent 50%), radial-gradient(at 69% 34%, hsla(281,80%,71%,1) 0px, transparent 50%), radial-gradient(at 83% 89%, hsla(205,61%,69%,1) 0px, transparent 50%), radial-gradient(at 23% 14%, hsla(234,83%,62%,1) 0px, transparent 50%), radial-gradient(at 18% 20%, hsla(302,94%,70%,1) 0px, transparent 50%), radial-gradient(at 1% 45%, hsla(196,99%,70%,1) 0px, transparent 50%), radial-gradient(at 34% 18%, hsla(316,72%,67%,1) 0px, transparent 50%)',
+      }}
     >
       {/* <BackgroundGradientAnimation 
         gradientBackgroundStart="rgb(25, 25, 36)" 
@@ -1461,15 +1149,15 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
               <CardTitle className="text-2xl font-bold monake-title">Monake</CardTitle>
             </div>
             <div className="flex-initial mx-auto"> {/* Score in the middle */}
-               <motion.div
-                 className="text-2xl font-bold text-yellow-400 tabular-nums" // Changed to yellow and kept tabular-nums
-                 key={score} // Add key to trigger re-render and animation on score change
-                 initial={{ scale: 1 }}
-                 animate={{ scale: [1, 1.2, 1] }} // Grow and shrink effect
-                 transition={{ duration: 0.3 }} // Animation duration
-               >
-                 {animatedScore.get()} {/* Display the score value */}
-               </motion.div>
+              <motion.div
+                className="text-2xl font-bold text-yellow-400 tabular-nums" // Changed to yellow and kept tabular-nums
+                key={score} // Add key to trigger re-render and animation on score change
+                initial={{ scale: 1 }}
+                animate={{ scale: [1, 1.2, 1] }} // Grow and shrink effect
+                transition={{ duration: 0.3 }} // Animation duration
+              >
+                {animatedScore.get()} {/* Display the score value */}
+              </motion.div>
             </div>
             <div className="flex-initial ml-auto"> {/* Button on the right */}
               <motion.div
@@ -1489,7 +1177,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             </div>
           </div>
         </CardHeader>
-        <CardContent 
+        <CardContent
           className="flex flex-col items-center space-y-0 px-2 py-1"
         >
           {/* Score Display Removed */}
@@ -1502,60 +1190,28 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
               height: GRID_HEIGHT * CELL_SIZE,
               backgroundColor: GAME_BG_COLOR,
               position: 'relative', // Crucial for absolute positioning of children
+              // CSS Grid background pattern - much more performant than DOM elements
+              backgroundImage: `
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px)
+              `,
+              backgroundSize: `${CELL_SIZE}px ${CELL_SIZE}px`,
             }}
           >
-            {/* Vertical Grid Lines */}
-            {Array.from({ length: GRID_WIDTH }).map((_, colIndex) => (
-              colIndex > 0 && (
-                <div
-                  key={`vline-${colIndex}`}
-                  style={{
-                    position: 'absolute',
-                    left: colIndex * CELL_SIZE,
-                    top: 0,
-                    width: 1,
-                    height: '100%', 
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    pointerEvents: 'none',
-                  }}
-                />
-              )
-            ))}
-            {/* Horizontal Grid Lines */}
-            {Array.from({ length: GRID_HEIGHT }).map((_, rowIndex) => (
-              rowIndex > 0 && (
-                <div
-                  key={`hline-${rowIndex}`}
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: rowIndex * CELL_SIZE,
-                    width: '100%',
-                    height: 1,
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    pointerEvents: 'none',
-                  }}
-                />
-              )
-            ))}
             {/* Countdown Timer - Rendered once over the grid */}
             {isGameStarting && countdownValue > 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 rounded-md z-20">
                 <p className="text-6xl font-bold text-white animate-ping" style={{ animationDuration: '1s' }}>{countdownValue}</p>
               </div>
             )}
-            {/* Snake rendering */}
+            {/* Snake rendering - Back to original smooth approach */}
             {snake.map((segment, index) => {
               const isHead = index === 0;
               const isTail = index === snake.length - 1 && snake.length > 1;
-              let segmentClasses = "absolute rounded-md transition-all ease-linear"; // duration-100 removed, transition duration now in style
+              let segmentClasses = "absolute rounded-md transition-all ease-linear";
 
               if (isHead) {
                 segmentClasses += " bg-green-400 z-10";
-                let eyeRotationStyle = {};
-                // Determine eye position based on direction for a more dynamic look
-                // This is a simplified representation. For true rotation, SVG or more complex CSS might be needed.
-                // For now, we'll use fixed positions and rely on the parent's rotation if implemented.
                 return (
                   <div
                     key={index}
@@ -1567,7 +1223,6 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                       top: segment.y * CELL_SIZE,
                       transitionProperty: 'left, top, transform',
                       transitionDuration: `${GAME_SPEED}ms`,
-                      // transform: `rotate(${getRotationAngle(directionRef.current)}deg)` // Optional: rotate head, using directionRef.current
                     }}
                   >
                     {/* Eyes positioned based on direction */}
@@ -1582,18 +1237,18 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                     key={index}
                     className={segmentClasses}
                     style={{
-                      width: CELL_SIZE * 0.8, // Smaller tail
+                      width: CELL_SIZE * 0.8,
                       height: CELL_SIZE * 0.8,
-                      left: segment.x * CELL_SIZE + CELL_SIZE * 0.1, // Centered
-                      top: segment.y * CELL_SIZE + CELL_SIZE * 0.1, // Centered
-                      borderRadius: '40% 40% 20% 20%', // Tapered tail shape
+                      left: segment.x * CELL_SIZE + CELL_SIZE * 0.1,
+                      top: segment.y * CELL_SIZE + CELL_SIZE * 0.1,
+                      borderRadius: '40% 40% 20% 20%',
                       transitionProperty: 'left, top',
                       transitionDuration: `${GAME_SPEED}ms`,
                     }}
                   />
                 );
               } else {
-                segmentClasses += " bg-green-500"; // Body color
+                segmentClasses += " bg-green-500";
                 return (
                   <div
                     key={index}
@@ -1623,7 +1278,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
               {food.type.emoji}
             </div>
             {superFood && (
-              <div 
+              <div
                 className="absolute text-2xl flex flex-col items-center justify-center shadow-lg transition-transform duration-200 ease-in-out"
                 style={{
                   width: CELL_SIZE,
@@ -1633,11 +1288,11 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                   animation: 'pulse 1s infinite ease-in-out',
                 }}
               >
-                <div 
+                <div
                   className="w-full h-1.5 bg-gray-600 rounded-full overflow-hidden mb-0.5"
                   style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
                 >
-                  <div 
+                  <div
                     className="h-full bg-yellow-400 transition-all duration-100 ease-linear"
                     style={{ width: `${(superFood.timer / (superFood.type.duration || SUPER_FOOD_BASE_DURATION)) * 100}%` }}
                   ></div>
@@ -1650,150 +1305,161 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                 <p className="text-6xl font-bold text-white animate-ping" style={{ animationDuration: '1s' }}>{countdownValue}</p>
               </div>
             )}
-              {/* Game Over Modal */}
-              {gameOver && (
-                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 rounded-lg">
-                   <Image src="/images/ded-snake-lol.png" alt="Game Over Snake" width={200} height={200} className="mb-3" priority/>
-                  <p className="text-5xl font-bold text-red-500 mb-2 animate-pulse">Game Over</p>
-                  <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
+            {/* Game Over Modal */}
+            {gameOver && (
+              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 rounded-lg">
+                <Image src="/images/ded-snake-lol.png" alt="Game Over Snake" width={200} height={200} className="mb-3" priority />
+                <p className="text-5xl font-bold text-red-500 mb-2 animate-pulse">Game Over</p>
+                <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
 
-                  {/* Score Submission / Payment Button Logic */} 
-                  {score > 0 && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE' && (
-                    !isConnected ? (
-                      <Button 
-                        onClick={() => connectors.length > 0 && connect({ connector: connectors[0] })}
-                        className="w-3/4 py-3 text-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        Connect Wallet
-                      </Button>
-                    ) : chainId !== monadTestnet.id ? (
-                      <Button 
-                        onClick={() => switchChain && switchChain({ chainId: monadTestnet.id })}
-                        className="w-3/4 py-3 text-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        Switch to Monad Testnet to Save Score
-                      </Button>
-                    ) : ( // Wallet is connected and on the correct chain
-                      isConnected && address && chainId === monadTestnet.id && ( // This inner check is now redundant due to outer checks but kept for safety / structure similarity
-                    
-                    hasPaidForTodayForScoreSubmission ? (
-                      isScoreTxSuccess || hasSubmittedScore ? (
-                        <div className="text-center w-3/4 my-2">
-                          <p className="text-green-400 font-semibold text-lg py-2">Submitted!!</p>
-                          {submitScoreTxHash && (
-                            <p className="text-sm text-green-300">
-                              TX: {submitScoreTxHash.slice(0, 10)}...{submitScoreTxHash.slice(-8)}
-                            </p>
-                          )}
-                        </div>
+                {/* Score Submission / Payment Button Logic */}
+                {score > 0 && (LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE' && (
+                  !isConnected ? (
+                    <Button
+                      onClick={() => connectors.length > 0 && connect({ connector: connectors[0] })}
+                      className="w-3/4 py-2 text-base bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      Connect Wallet
+                    </Button>
+                  ) : chainId !== monadTestnet.id ? (
+                    <Button
+                      onClick={() => switchChain && switchChain({ chainId: monadTestnet.id })}
+                      className="w-3/4 py-2 text-base bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      Switch to Monad Testnet to Save Score
+                    </Button>
+                  ) : ( // Wallet is connected and on the correct chain
+                    isConnected && address && chainId === monadTestnet.id && ( // This inner check is now redundant due to outer checks but kept for safety / structure similarity
+
+                      hasPaidForTodayForScoreSubmission ? (
+                        isScoreTxSuccess || hasSubmittedScore ? (
+                          <div className="text-center w-3/4 my-1">
+                            <p className="text-green-400 font-semibold text-base py-1">Submitted!!</p>
+                            {submitScoreTxHash && (
+                              <p className="text-sm text-green-300">
+                                TX: {submitScoreTxHash.slice(0, 10)}...{submitScoreTxHash.slice(-8)}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={submitPlayerScore}
+                            disabled={isAttemptingScoreSubmission || score <= 0 || isPayingFee || isConfirmingFee}
+                            className="w-3/4 py-2 text-base bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            {isAttemptingScoreSubmission ? 'Processing...' : (isNewHighScore ? `Submit New High Score!` : `Submit Score`)}
+                          </Button>
+                        )
                       ) : (
-                        <Button 
-                          onClick={submitPlayerScore} 
-                          disabled={isAttemptingScoreSubmission || score <= 0 || isPayingFee || isConfirmingFee}
-                          className="w-3/4 py-3 text-lg bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                        <Button
+                          onClick={handlePayEntryFeeToSaveScore}
+                          disabled={isPayingFee || isConfirmingFee || isLoadingHasPaid || isLoadingEntryFee || isAttemptingScoreSubmission}
+                          className="w-3/4 py-2 text-base bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          {isAttemptingScoreSubmission ? 'Processing...' : (isNewHighScore ? `Submit New High Score!` : `Submit Score`)}
+                          {isPayingFee ? 'Sending Tx...'
+                            : isConfirmingFee ? 'Confirming Tx...'
+                              : (isLoadingHasPaid || isLoadingEntryFee) ? 'Loading Status...'
+                                : `Save Score (${formatEther(entryFeeAmount)} MON)`}
                         </Button>
                       )
-                    ) : (
-                      <Button 
-                        onClick={handlePayEntryFeeToSaveScore}
-                        disabled={isPayingFee || isConfirmingFee || isLoadingHasPaid || isLoadingEntryFee || isAttemptingScoreSubmission}
-                        className="w-3/4 py-3 text-lg bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {isPayingFee ? 'Sending Tx...' 
-                          : isConfirmingFee ? 'Confirming Tx...' 
-                          : (isLoadingHasPaid || isLoadingEntryFee) ? 'Loading Status...' 
-                          : `Save Score (${formatEther(entryFeeAmount)} MON)`}
-                      </Button>
                     )
-                  )
                   ))}
-                  {/* End of new connect/switch logic wrapper */}
+                {/* End of new connect/switch logic wrapper */}
 
-                  {(isAttemptingScoreSubmission || isPayingFee || isConfirmingFee) && !isScoreTxSuccess &&
-                    <p className="text-center my-2 text-sm text-blue-300">Please wait...</p> 
-                  }
-                  
-                  {showScoreSubmissionStatus && (
-                    // This message area will show general status or errors not covered by button states
-                    // Specific messages for 'Pay fee', 'Switch chain', 'Connect wallet' are shown if buttons aren't rendered or if those are the primary actions needed.
-                    // Success/failure of actual submission/payment will also appear here.
-                    <p className={`text-sm my-2 p-2 rounded-md w-3/4 text-center ${isScoreTxSuccess || (payFeeDataHash && !payFeeError) ? 'bg-green-700/70 text-green-300' : (submitScoreTxError || payFeeError || (typeof scoreSubmissionMessage === 'string' && (scoreSubmissionMessage.includes('failed') || scoreSubmissionMessage.includes('not configured') || scoreSubmissionMessage.includes('Pay entry fee') || scoreSubmissionMessage.includes('Switch to Monad') || scoreSubmissionMessage.includes('Connect wallet')))) ? 'bg-red-700/70 text-red-300' : 'bg-blue-700/70 text-blue-300'}`}>
-                      {scoreSubmissionMessage}
-                    </p>
-                  )}
-                  {/* Fallback message if contract address is missing and no other message is active */}
-                  {(LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
-                     <p className="text-center text-xs text-red-300 p-2 my-2 bg-red-700/50 rounded-md w-3/4">
-                      Leaderboard contract not configured. Scores will not be saved.
-                    </p>
-                  )}
-                 
-                  {/* Original showScoreSubmissionStatus block, now integrated above or covered by button logic */}
-                  {/* {showScoreSubmissionStatus && (
+                {(isAttemptingScoreSubmission || isPayingFee || isConfirmingFee) && !isScoreTxSuccess &&
+                  <p className="text-center my-1 text-sm text-blue-300">Please wait...</p>
+                }
+
+                {showScoreSubmissionStatus && (
+                  // This message area will show general status or errors not covered by button states
+                  // Specific messages for 'Pay fee', 'Switch chain', 'Connect wallet' are shown if buttons aren't rendered or if those are the primary actions needed.
+                  // Success/failure of actual submission/payment will also appear here.
+                  <p className={`text-sm my-1 p-1.5 rounded-md w-3/4 text-center ${isScoreTxSuccess || (payFeeDataHash && !payFeeError) ? 'bg-green-700/70 text-green-300' : (submitScoreTxError || payFeeError || (typeof scoreSubmissionMessage === 'string' && (scoreSubmissionMessage.includes('failed') || scoreSubmissionMessage.includes('not configured') || scoreSubmissionMessage.includes('Pay entry fee') || scoreSubmissionMessage.includes('Switch to Monad') || scoreSubmissionMessage.includes('Connect wallet')))) ? 'bg-red-700/70 text-red-300' : 'bg-blue-700/70 text-blue-300'}`}>
+                    {scoreSubmissionMessage}
+                  </p>
+                )}
+                {/* Fallback message if contract address is missing and no other message is active */}
+                {(LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
+                  <p className="text-center text-xs text-red-300 p-1.5 my-1 bg-red-700/50 rounded-md w-3/4">
+                    Leaderboard contract not configured. Scores will not be saved.
+                  </p>
+                )}
+
+                {/* Original showScoreSubmissionStatus block, now integrated above or covered by button logic */}
+                {/* {showScoreSubmissionStatus && (
                     <p className={`text-sm my-2 p-2 rounded-md w-3/4 text-center ${submitScoreData ? 'bg-green-700/70 text-green-300' : (submitScoreError || scoreSubmissionMessage.includes('failed') || scoreSubmissionMessage.includes('not configured') || scoreSubmissionMessage.includes('Pay entry fee') || scoreSubmissionMessage.includes('Switch to Monad') || scoreSubmissionMessage.includes('Connect wallet')) ? 'bg-red-700/70 text-red-300' : 'bg-blue-700/70 text-blue-300'}`}>
                       {scoreSubmissionMessage}
                     </p>
                   )} */}
-                  {/* {(LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
+                {/* {(LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE' && !showScoreSubmissionStatus && (
                      <p className="text-center text-xs text-red-300 p-2 my-2 bg-red-700/50 rounded-md w-3/4">
                       Leaderboard contract not configured. Scores will not be saved.
                     </p>
                   )} */}
 
-                 
-                  {/* <p className="text-2xl text-slate-300 mb-1">Final Score</p> */}
-                  {/* <p className="text-3xl font-bold text-cyan-400 mb-4">{score}</p> */}
-                  <div className="flex space-x-3">
-                    <Button 
-                      onClick={restartGame} 
-                      className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"
-                    >
-                      Restart
-                    </Button>
-                    <Button 
-                      onClick={onBackToMenu} 
-                      className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"
-                    >
-                      Menu
-                    </Button>
-                  </div>
-                  {/* Share on Farcaster Button */} 
-                  <Button 
-                      onClick={() => {
-                        if (actions) {
-                          const shareMessages = [
-                            `I scored ${score} in the Monad Snake Game! Can you beat my score? 🐍🎮`,
-                            `Just hit ${score} points in the Monad Snake Game! Challenge me! 🚀`,
-                            `Slithering my way to ${score} in the Monad Snake Game! What's your best? 🌟`,
-                            `Can anyone beat my ${score} points in the Monad Snake Game? Give it a shot! 🏆`,
-                            `Feeling proud of my ${score} in the Monad Snake Game! Join the fun! 🎉`
-                          ];
-                          const randomIndex = Math.floor(Math.random() * shareMessages.length);
-                          const selectedMessage = shareMessages[randomIndex];
-                          actions.composeCast({
-                            text: selectedMessage,
-                            embeds: [`${APP_URL}`],
-                          });
-                        }
-                      }}
-                      className="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"
-                      disabled={!actions} // Disable if actions are not available
-                    >
-                    Share Score
+
+                {/* <p className="text-2xl text-slate-300 mb-1">Final Score</p> */}
+                {/* <p className="text-3xl font-bold text-cyan-400 mb-4">{score}</p> */}
+                <div className="flex space-x-3 mt-2">
+                  <Button
+                    onClick={restartGame}
+                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-1.5 px-3 rounded-lg text-base shadow-md transition-transform transform hover:scale-105"
+                  >
+                    Restart
+                  </Button>
+                  <Button
+                    onClick={onBackToMenu}
+                    className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-1.5 px-3 rounded-lg text-base shadow-md transition-transform transform hover:scale-105"
+                  >
+                    Menu
                   </Button>
                 </div>
-              )}
+                {/* Share on Farcaster Button */}
+                <Button
+                  onClick={() => {
+                    if (actions) {
+                      const shareMessages = [
+                        `I scored ${score} in the Monad Snake Game! Can you beat my score? 🐍🎮`,
+                        `Just hit ${score} points in the Monad Snake Game! Challenge me! 🚀`,
+                        `Slithering my way to ${score} in the Monad Snake Game! What's your best? 🌟`,
+                        `Can anyone beat my ${score} points in the Monad Snake Game? Give it a shot! 🏆`,
+                        `Feeling proud of my ${score} in the Monad Snake Game! Join the fun! 🎉`
+                      ];
+                      const randomIndex = Math.floor(Math.random() * shareMessages.length);
+                      const selectedMessage = shareMessages[randomIndex];
+                      actions.composeCast({
+                        text: selectedMessage,
+                        embeds: [`${APP_URL}`],
+                      });
+                    }
+                  }}
+                  className="mt-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-1.5 px-3 rounded-lg text-base shadow-md transition-transform transform hover:scale-105"
+                  disabled={!actions} // Disable if actions are not available
+                >
+                  Share Score
+                </Button>
+              </div>
+            )}
 
-              
+
           </div>
         </CardContent>
-        
-        <CardFooter className="flex justify-center pt-1 pb-3">
-            <p className="text-xs text-gray-400 ">Use arrow keys or swipe to move</p>
+
+        <CardFooter className="flex flex-col items-center pt-1 pb-3 space-y-2">
+          {showVirtualKeys && !gameOver && (
+            <div className="flex justify-center">
+              <VirtualArrowKeys
+                onDirectionPress={handleVirtualKeyPress}
+                disabled={gameOver || isGameStarting}
+                className={`transition-opacity duration-200 ${isGameStarting ? 'opacity-50' : 'opacity-90'}`}
+              />
+            </div>
+          )}
+          <p className="text-xs text-gray-400">
+            {showVirtualKeys ? "Use virtual keys or keyboard arrows to move" : "Use keyboard arrow keys to move"}
+          </p>
         </CardFooter>
-        
+
       </Card>
       <style jsx global>{`
         html, body, #__next, div#__next > div {

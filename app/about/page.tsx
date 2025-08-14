@@ -8,6 +8,7 @@ import { SiFarcaster, SiX, SiGithub } from 'react-icons/si';  // Added FaHeart f
 import { FaTelegramPlane, FaHeart, FaExclamationCircle, FaCheckCircle, FaInfoCircle, FaWallet } from 'react-icons/fa';
 import { BiNetworkChart } from 'react-icons/bi';
 import { useMiniAppContext } from '@/hooks/use-miniapp-context'; // Added for Farcaster SDK actions
+import { sdk } from '@farcaster/frame-sdk';
 
 // Wagmi and Viem imports for donation
 import { useAccount, useSendTransaction, useSwitchChain } from 'wagmi';
@@ -19,20 +20,21 @@ const socialLinks = [
   {
     name: 'Farcaster',
     icon: <SiFarcaster size={18} />, // Slightly reduced icon size for consistency
-    url: 'https://warpcast.com/gamerjagdish', 
-    handle: 'gamerjagdish' 
+    url: 'https://farcaster.xyz/gamerjagdish', 
+    handle: 'gamerjagdish',
+    fid: 990584 // Your Farcaster ID
   },
   {
     name: 'Twitter / X',
     icon: <SiX size={18} />, // Slightly reduced icon size
     url: 'https://x.com/jagdishhhhhhhh', 
-    handle: 'jagdishhhhhhhh' 
+    handle: 'jagdishhhhhhhh'
   },
   {
     name: 'GitHub',
     icon: <SiGithub size={18} />, // Slightly reduced icon size
     url: 'https://github.com/GamerJagdish', 
-    handle: 'GamerJagdish' 
+    handle: 'GamerJagdish'
   },
   {
     name: 'Telegram',
@@ -68,10 +70,33 @@ const AboutPage: React.FC = () => {
     reset: resetTransactionState,
   } = useSendTransaction();
   const { switchChain } = useSwitchChain();
-  const { actions } = useMiniAppContext(); // Added for Farcaster SDK actions
+  const { actions, context: miniAppContext } = useMiniAppContext(); // Added for Farcaster SDK actions
+  const farcasterUser = miniAppContext?.user;
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [displayedTxHash, setDisplayedTxHash] = useState<string | null>(null);
+
+  // Function to handle Farcaster SDK profile viewing
+  const handleFarcasterProfile = async (fid: number) => {
+    // Check if we have current user's Farcaster context - this indicates SDK is working
+    const isSdkWorking = farcasterUser && farcasterUser.fid && farcasterUser.username;
+    
+    if (!isSdkWorking) {
+      console.log(`[handleFarcasterProfile] SDK not working (no user context), falling back to URL for FID: ${fid}`);
+      window.open(`https://farcaster.xyz/gamerjagdish`, '_blank');
+      return;
+    }
+
+    try {
+      console.log(`[handleFarcasterProfile] SDK working (user context available), attempting to view profile for FID: ${fid}`);
+      await sdk.actions.viewProfile({ fid });
+      console.log(`[handleFarcasterProfile] Successfully opened profile for FID: ${fid}`);
+    } catch (error) {
+      console.warn(`[handleFarcasterProfile] SDK viewProfile failed for FID ${fid}:`, error);
+      // Fallback to URL approach with username
+      window.open(`https://farcaster.xyz/gamerjagdish`, '_blank');
+    }
+  };
 
   // Add notification handler
   const addNotification = useCallback((type: NotificationType, message: string) => {
@@ -177,41 +202,65 @@ const AboutPage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-lg bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 p-6 sm:p-8"
+        className="w-full max-w-md bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 p-4 sm:p-6"
       >
-        <CardHeader className="pt-6 pb-4 text-center">
-          <CardTitle className="text-4xl sm:text-5xl font-bold monake-title">About Monake</CardTitle>
+        <CardHeader className="pt-4 pb-2 text-center">
+          <CardTitle className="text-3xl sm:text-4xl font-bold monake-title">About Monake</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col items-center space-y-6 pt-4">
+        <CardContent className="flex flex-col items-center space-y-4 pt-2">
           <p className="text-center text-slate-300">
-            Monake is a classic snake game reimagined with a modern sus twist, built on the Monad blockchain.
-          </p>
-          <p className="text-center text-slate-300">
-            Enjoy the game and try to get the highest score! if there are any issues just contact me on farcaster.
+            Monake is a classic snake game reimagined with a modern twist, built on the Monad blockchain.
           </p>
           
-          <div className="text-center mt-6 w-full">
-            <p className="text-slate-100 text-lg font-semibold mb-1">
+          {/* Feedback Section */}
+          <div className="w-full p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-md">
+            <h3 className="text-base font-semibold text-blue-300 mb-1 text-center">💬 Feedback & Support</h3>
+            <p className="text-xs text-slate-300 text-center leading-tight">
+              Got feedback about the new <span className="text-yellow-300 font-medium">virtual keypad</span>? 
+              Found bugs or have suggestions? 
+              <span className="text-purple-300 font-medium">DM me on Farcaster</span> - I read every message!
+            </p>
+          </div>
+          
+          <p className="text-center text-slate-300">
+            Enjoy the game and try to get the highest score! Season 2 is coming with massive rewards 🚀
+          </p>
+          
+          <div className="text-center w-full">
+            <p className="text-slate-100 text-base font-semibold mb-0.5">
               Developed by
             </p>
-            <p className="text-slate-50 text-xl font-bold mb-4">
+            <p className="text-slate-50 text-lg font-bold mb-3">
               Gamer Jagdish Sharma
             </p>
             {/* Social Links Section */}
-            <div className="flex flex-wrap justify-center items-center gap-2 sm:gap-3">
+            <div className="flex flex-wrap justify-center items-center gap-1.5 sm:gap-2">
               {socialLinks.map((social) => (
-                <a 
-                  key={social.name} 
-                  href={social.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex flex-col items-center p-2.5 bg-slate-700/60 hover:bg-slate-600/80 rounded-lg transition-colors duration-150 ease-in-out w-[calc(50%-0.5rem)] sm:w-auto min-w-[90px] sm:min-w-[110px] shadow-md hover:shadow-lg"
-                >
-                  <div className="flex items-center justify-center text-purple-400 mb-0.5">
-                    {social.icon}
-                  </div>
-                  <span className="text-[10px] sm:text-xs text-slate-300 font-medium w-full text-center px-1 break-all">{social.handle}</span>
-                </a>
+                social.name === 'Farcaster' ? (
+                  <button
+                    key={social.name}
+                    onClick={() => handleFarcasterProfile(social.fid!)}
+                    className="flex flex-col items-center p-2 bg-slate-700/60 hover:bg-slate-600/80 rounded-md transition-colors duration-150 ease-in-out w-[calc(50%-0.375rem)] sm:w-auto min-w-[80px] sm:min-w-[90px] shadow-md hover:shadow-lg"
+                  >
+                    <div className="flex items-center justify-center text-purple-400 mb-0.5">
+                      {social.icon}
+                    </div>
+                    <span className="text-[9px] sm:text-[10px] text-slate-300 font-medium w-full text-center px-1 break-all">{social.handle}</span>
+                  </button>
+                ) : (
+                  <a 
+                    key={social.name} 
+                    href={social.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center p-2 bg-slate-700/60 hover:bg-slate-600/80 rounded-md transition-colors duration-150 ease-in-out w-[calc(50%-0.375rem)] sm:w-auto min-w-[80px] sm:min-w-[90px] shadow-md hover:shadow-lg"
+                  >
+                    <div className="flex items-center justify-center text-purple-400 mb-0.5">
+                      {social.icon}
+                    </div>
+                    <span className="text-[9px] sm:text-[10px] text-slate-300 font-medium w-full text-center px-1 break-all">{social.handle}</span>
+                  </a>
+                )
               ))}
             </div>
           </div>
@@ -221,17 +270,17 @@ const AboutPage: React.FC = () => {
             onClick={handleDonateClick}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="w-full py-3 mt-6 text-lg sm:text-xl bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out flex items-center justify-center space-x-2"
+            className="w-full py-2.5 text-base sm:text-lg bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-md shadow-md transition-colors duration-150 ease-in-out flex items-center justify-center space-x-2"
           >
             <FaHeart />
             <span>Donate</span>
           </motion.button>
 
-          <Link href="/" passHref className="w-full mt-4"> {/* Reduced margin top */}
+          <Link href="/" passHref className="w-full">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="w-full py-3 text-lg sm:text-xl bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+              className="w-full py-2.5 text-base sm:text-lg bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-md shadow-md transition-colors duration-150 ease-in-out"
             >
               Back to Home
             </motion.button>

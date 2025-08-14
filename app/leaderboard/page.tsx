@@ -5,470 +5,17 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { BackgroundGradientAnimation } from '@/components/ui/BackgroundGradientAnimation';
-import { useAccount, useSendTransaction, useSwitchChain, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount, useSwitchChain, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 import { monadTestnet } from 'viem/chains';
-import { parseEther, formatEther, createPublicClient, http, decodeEventLog } from 'viem';
+import { parseEther, formatEther, createPublicClient, http } from 'viem';
 import { ArrowLeft } from 'lucide-react';
+import { SECURE_LEADERBOARD_ABI } from '@/lib/leaderboard-abi';
+import { getSignedEntryFee, generateGameSession } from '@/lib/secure-score';
+import { useMiniAppContext } from "@/hooks/use-miniapp-context";
+import { sdk } from '@farcaster/frame-sdk';
 
-const LEADERBOARD_CONTRACT_ADDRESS = '0x0aC28489445B4d1C55CF1B667BBdF6f20A31Abd9';
-const LeaderboardABI = [
-  {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newAllTimeHighScore",
-        "type": "uint256"
-      }
-    ],
-    "name": "AllTimeHighScoreUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "day",
-        "type": "uint256"
-      }
-    ],
-    "name": "EntryFeePaid",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "oldDay",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newDay",
-        "type": "uint256"
-      }
-    ],
-    "name": "PrizePoolReset",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "score",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "day",
-        "type": "uint256"
-      }
-    ],
-    "name": "ScoreSubmitted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "winner",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "prizeAmount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "day",
-        "type": "uint256"
-      }
-    ],
-    "name": "WinnerDeclared",
-    "type": "event"
-  },
-  {
-    "inputs": [],
-    "name": "currentDayTimestamp",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "dailyHighestScore",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "dailyParticipants",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "dailyPlayerStats",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "score",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "hasPaidEntryFee",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "dailyPrizePool",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "dayToProcess",
-        "type": "uint256"
-      }
-    ],
-    "name": "declareWinnerAndDistributePrize",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "entryFee",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getCurrentPrizePool",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "day",
-        "type": "uint256"
-      }
-    ],
-    "name": "getDailyParticipantsList",
-    "outputs": [
-      {
-        "internalType": "address[]",
-        "name": "",
-        "type": "address[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getHighestScoreToday",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      }
-    ],
-    "name": "getPlayerAllTimeHighScore",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      }
-    ],
-    "name": "getPlayerScore",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "day",
-        "type": "uint256"
-      }
-    ],
-    "name": "getPlayerScoreForDay",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      }
-    ],
-    "name": "hasPlayerPaidToday",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "payEntryFee",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "playerAllTimeHighScore",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_newFee",
-        "type": "uint256"
-      }
-    ],
-    "name": "setEntryFee",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "score",
-        "type": "uint256"
-      }
-    ],
-    "name": "submitScore",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address payable",
-        "name": "to",
-        "type": "address"
-      }
-    ],
-    "name": "withdrawStuckFunds",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "stateMutability": "payable",
-    "type": "receive"
-  }
-];
+const LEADERBOARD_CONTRACT_ADDRESS = '0x9c36dd7af3c84727c43560f32f824067005a210c';
+const LeaderboardABI = SECURE_LEADERBOARD_ABI;
 
 interface LeaderboardEntry {
   rank: number;
@@ -477,14 +24,16 @@ interface LeaderboardEntry {
   displayName?: string;
   avatar?: string;
   identity?: string;
+  farcasterID?: number;
 }
 
 const LeaderboardPage: React.FC = () => {
   // console.log('[LeaderboardPage] Component rendering/mounting.');
   const { address, isConnected, chainId } = useAccount();
+  const { context: miniAppContext } = useMiniAppContext();
+  const farcasterUser = miniAppContext?.user;
   // console.log('[LeaderboardPage] Account details: address:', address, 'isConnected:', isConnected, 'chainId:', chainId);
   const { switchChain } = useSwitchChain();
-  const { data: hash, sendTransaction, isPending: isSendingEth, reset: resetSendTx } = useSendTransaction();
   const { writeContract, isPending: isConfirmingTx, data: writeData, reset: resetWriteContract } = useWriteContract();
 
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -496,6 +45,28 @@ const LeaderboardPage: React.FC = () => {
   const [currentDay, setCurrentDay] = useState<bigint | null>(null);
   const publicClient = usePublicClient({ chainId: monadTestnet.id });
   // console.log('[LeaderboardPage] usePublicClient hook called. Initial publicClient (is it null/undefined?):', publicClient === null ? 'null' : publicClient === undefined ? 'undefined' : 'defined');
+
+  // Function to handle Farcaster SDK profile viewing
+  const handleFarcasterProfile = async (fid: number) => {
+    // Check if we have current user's Farcaster context - this indicates SDK is working
+    const isSdkWorking = farcasterUser && farcasterUser.fid && farcasterUser.username;
+    
+    if (!isSdkWorking) {
+      console.log(`[handleFarcasterProfile] SDK not working (no user context), falling back to URL for FID: ${fid}`);
+      // For URL fallback, we need a username, not FID - this will be handled in the click handler
+      return false; // Return false to indicate SDK not available
+    }
+
+    try {
+      console.log(`[handleFarcasterProfile] SDK working (user context available), attempting to view profile for FID: ${fid}`);
+      await sdk.actions.viewProfile({ fid });
+      console.log(`[handleFarcasterProfile] Successfully opened profile for FID: ${fid}`);
+      return true; // Return true to indicate success
+    } catch (error) {
+      console.warn(`[handleFarcasterProfile] SDK viewProfile failed for FID ${fid}:`, error);
+      return false; // Return false to indicate failure
+    }
+  };
 
   // Fetch entry fee
   const { data: fetchedEntryFee } = useReadContract({
@@ -742,12 +313,12 @@ const LeaderboardPage: React.FC = () => {
         return;
       }
 
-      // Get scores for each participant (with batching for performance)
-      console.log('[fetchLeaderboard] Getting scores for', dailyParticipants.length, 'participants');
+      // Get scores and farcaster data for each participant (with batching for performance)
+      console.log('[fetchLeaderboard] Getting scores and farcaster data for', dailyParticipants.length, 'participants');
 
       // Process in batches to avoid overwhelming the RPC
       const batchSize = 50;
-      const playerScores: { player: string; score: bigint }[] = [];
+      const playerData: { player: string; score: bigint; farcasterID: number }[] = [];
 
       for (let i = 0; i < dailyParticipants.length; i += batchSize) {
         const batch = dailyParticipants.slice(i, i + batchSize);
@@ -755,20 +326,38 @@ const LeaderboardPage: React.FC = () => {
 
         const batchPromises = batch.map(async (player) => {
           try {
-            const score = await publicClient.readContract({
+            // Get player profile which includes score and farcaster ID
+            const profile = await publicClient.readContract({
               ...contract,
-              functionName: 'getPlayerScoreForDay',
-              args: [player, currentDay],
-            }) as bigint;
-            return { player, score };
+              functionName: 'getPlayerProfile',
+              args: [player],
+            }) as [bigint, bigint, bigint, string, boolean]; // [currentScore, allTimeHighScore, farcasterID, username, hasPaidToday]
+            
+            const [currentScore, , farcasterID] = profile;
+            return { 
+              player, 
+              score: currentScore, 
+              farcasterID: Number(farcasterID) 
+            };
           } catch (error) {
-            console.warn(`[fetchLeaderboard] Failed to get score for player ${player}:`, error);
-            return { player, score: 0n };
+            console.warn(`[fetchLeaderboard] Failed to get profile for player ${player}:`, error);
+            // Fallback to just getting the score
+            try {
+              const score = await publicClient.readContract({
+                ...contract,
+                functionName: 'getPlayerScoreForDay',
+                args: [player, currentDay],
+              }) as bigint;
+              return { player, score, farcasterID: 0 };
+            } catch (scoreError) {
+              console.warn(`[fetchLeaderboard] Failed to get score for player ${player}:`, scoreError);
+              return { player, score: 0n, farcasterID: 0 };
+            }
           }
         });
 
         const batchResults = await Promise.all(batchPromises);
-        playerScores.push(...batchResults);
+        playerData.push(...batchResults);
 
         // Small delay between batches to be nice to the RPC
         if (i + batchSize < dailyParticipants.length) {
@@ -776,19 +365,20 @@ const LeaderboardPage: React.FC = () => {
         }
       }
 
-      console.log('[fetchLeaderboard] Got scores for all participants:', playerScores.length);
+      console.log('[fetchLeaderboard] Got scores and farcaster data for all participants:', playerData.length);
 
-      // Sort playerScores by score in descending order and limit to top 50
-      const sortedPlayerScores = [...playerScores]
+      // Sort playerData by score in descending order and limit to top 50
+      const sortedPlayerData = [...playerData]
         .sort((a, b) => Number(b.score) - Number(a.score))
         .slice(0, 50);
 
-      // Initial leaderboard with wallet addresses
-      const initialLeaderboard: LeaderboardEntry[] = sortedPlayerScores
-        .map(({ player, score }, index) => ({
+      // Initial leaderboard with wallet addresses and farcaster IDs
+      const initialLeaderboard: LeaderboardEntry[] = sortedPlayerData
+        .map(({ player, score, farcasterID }, index) => ({
           rank: index + 1,
           player,
           score: Number(score),
+          farcasterID: farcasterID > 0 ? farcasterID : undefined,
           displayName: undefined,
           avatar: undefined,
         }));
@@ -837,7 +427,8 @@ const LeaderboardPage: React.FC = () => {
       // Fetch profiles in background
       const fetchProfilesInBackground = async () => {
         // Process profiles sequentially in order of rank
-        for (const { player } of sortedPlayerScores) {
+        for (const { player } of sortedPlayerData) {
+          // Always try to fetch profile data from web3bio for display names and avatars
           const profile = await fetchProfile(player);
           if (profile) {
             updateLeaderboardWithProfile(player, profile);
@@ -925,36 +516,74 @@ const LeaderboardPage: React.FC = () => {
 
 
   const handlePayEntryFee = async () => {
-    if (!isConnected || !address) {
-      alert('Please connect your wallet.');
-      return;
-    }
-    if (chainId !== monadTestnet.id) {
-      alert('WRONG NETWORK: Please switch to Monad Testnet to pay the entry fee.');
-      switchChain?.({ chainId: monadTestnet.id });
-      return;
-    }
-    if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
-      alert('Leaderboard contract address is not set. Please inform the developer.');
-      return;
-    }
-
-    // Secondary chain check before writing to contract
-    if (chainId !== monadTestnet.id) {
-      alert('CRITICAL: Transaction halted. You are not on the Monad Testnet. Please switch and try again.');
-      return;
-    }
-
     try {
+      if (!isConnected || !address) {
+        alert('Please connect your wallet.');
+        return;
+      }
+      if (chainId !== monadTestnet.id) {
+        alert('WRONG NETWORK: Please switch to Monad Testnet to pay the entry fee.');
+        switchChain?.({ chainId: monadTestnet.id });
+        return;
+      }
+      if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+        alert('Leaderboard contract address is not set. Please inform the developer.');
+        return;
+      }
+
+      // Secondary chain check before writing to contract
+      if (chainId !== monadTestnet.id) {
+        alert('CRITICAL: Transaction halted. You are not on the Monad Testnet. Please switch and try again.');
+        return;
+      }
+
+      console.log('Starting entry fee payment process...');
       resetWriteContract();
+      
+      // Get Farcaster user data if available
+      const farcasterID = farcasterUser?.fid || 0;
+      const username = farcasterUser?.username || '';
+      
+      console.log('Farcaster data:', { farcasterID, username });
+      
+      // Create dummy game data for entry fee
+      const gameData = {
+        gameStartTime: Date.now() - 1000,
+        gameEndTime: Date.now(),
+        moves: [],
+        finalScore: 0,
+        gameSession: generateGameSession()
+      };
+
+      console.log('Getting signed entry fee...');
+      // Get signed entry fee from server
+      const signedFee = await getSignedEntryFee(
+        address,
+        entryFeeAmount.toString(),
+        gameData,
+        farcasterID,
+        username
+      );
+
+      console.log('Signed fee received:', signedFee);
+      console.log('Calling writeContract...');
+
       writeContract({
         abi: LeaderboardABI,
         address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
         functionName: 'payEntryFee',
+        args: [
+          BigInt(signedFee.farcasterID),
+          signedFee.username,
+          BigInt(signedFee.timestamp),
+          signedFee.signature as `0x${string}`
+        ],
         value: entryFeeAmount,
       });
+
+      console.log('writeContract called successfully');
     } catch (error) {
-      console.error('Error paying entry fee:', error);
+      console.error('Error in handlePayEntryFee:', error);
       alert(`Error paying entry fee: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
@@ -1060,12 +689,25 @@ const LeaderboardPage: React.FC = () => {
                         <div className="flex flex-col">
                           <span
                             className={`text-xs font-semibold truncate max-w-[100px] sm:max-w-[140px] ${textClass}`}
-                            title={entry.displayName}
+                            title={entry.displayName || (entry.farcasterID ? `Farcaster ID: ${entry.farcasterID}` : entry.player)}
                             style={{ wordBreak: 'break-word' }}
                           >
                             {entry.displayName ? (
                               <button
-                                onClick={() => window.open(`https://farcaster.xyz/${entry.identity || entry.displayName}`, '_blank')}
+                                onClick={async () => {
+                                  if (entry.farcasterID && entry.farcasterID > 0) {
+                                    // Try SDK first when we have farcaster ID
+                                    const sdkSuccess = await handleFarcasterProfile(entry.farcasterID);
+                                    if (!sdkSuccess && entry.identity) {
+                                      // Fallback to URL with username if SDK fails
+                                      window.open(`https://farcaster.xyz/${entry.identity}`, '_blank');
+                                    }
+                                  } else if (entry.identity) {
+                                    // Direct URL approach when no farcaster ID but have identity
+                                    window.open(`https://farcaster.xyz/${entry.identity}`, '_blank');
+                                  }
+                                  // If no farcaster ID and no identity, do nothing
+                                }}
                                 className={`transition-colors text-left ${textClass} ${hoverClass}`}
                                 style={{ whiteSpace: 'normal', wordBreak: 'break-word', fontSize: '0.95em' }}
                               >
@@ -1091,8 +733,8 @@ const LeaderboardPage: React.FC = () => {
         </CardContent>
         <CardFooter className="pt-6 text-center">
           <p className="text-xs text-slate-500">
-            Leaderboard resets daily at 00:00 UTC. Highest score of the day wins the prize pool.
-            Ensure you are on Monad Testnet to participate.
+            Leaderboard resets daily at 00:00 UTC. Prize pool is distributed: 1st place (70%), 2nd place (20%), 3rd place (10%).
+            Tied scores split their combined prize equally. Ensure you are on Monad Testnet to participate.
           </p>
         </CardFooter>
       </motion.div>
@@ -1109,10 +751,10 @@ const LeaderboardPage: React.FC = () => {
               <span className="text-white font-semibold">Buy Pass to Join</span>
               <Button
                 onClick={handlePayEntryFee}
-                disabled={isSendingEth || isConfirmingTx}
+                disabled={isConfirmingTx}
                 className="bg-indigo-500 hover:bg-indigo-600 text-white"
               >
-                {isSendingEth || isConfirmingTx ? 'Processing...' : `Buy (${formatEther(entryFeeAmount)} MON)`}
+                {isConfirmingTx ? 'Processing...' : `Buy (${formatEther(entryFeeAmount)} MON)`}
               </Button>
             </div>
           ) : (

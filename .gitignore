@@ -42,4 +42,3 @@ lib/farcasterUtils.ts
 ignition
 artifacts
 cache
-hardhat.config.ts

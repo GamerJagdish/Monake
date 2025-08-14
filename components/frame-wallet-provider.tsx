@@ -10,9 +10,15 @@ export const config = createConfig({
     [monadTestnet.id]: http(),
   },
   connectors: [
-    farcasterFrame(),
-    injected(), // Add injected connector for browser wallets
+    farcasterFrame({
+      // Add any specific configuration if needed
+    }),
+    injected({
+      // Add specific configuration for injected connector
+      shimDisconnect: true,
+    }),
   ],
+  ssr: false, // Disable SSR for better compatibility
 });
 
 const queryClient = new QueryClient();
