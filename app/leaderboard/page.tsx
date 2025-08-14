@@ -12,7 +12,7 @@ import { ArrowLeft } from 'lucide-react';
 import { SECURE_LEADERBOARD_ABI } from '@/lib/leaderboard-abi';
 import { getSignedEntryFee, generateGameSession } from '@/lib/secure-score';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
-import { sdk } from '@farcaster/frame-sdk';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 const LEADERBOARD_CONTRACT_ADDRESS = '0x9c36dd7af3c84727c43560f32f824067005a210c';
 const LeaderboardABI = SECURE_LEADERBOARD_ABI;

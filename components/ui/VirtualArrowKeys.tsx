@@ -33,11 +33,11 @@ const VirtualArrowKeys: React.FC<VirtualArrowKeysProps> = ({
     handleKeyPress(direction, keyName);
   }, [handleKeyPress]);
 
-  const keyStyle = "w-16 h-14 bg-gray-800/90 hover:bg-gray-700/90 active:bg-gray-600/90 border border-gray-600 rounded-lg flex items-center justify-center text-white shadow-md transition-all duration-100 ease-out select-none";
-  const activeKeyStyle = "w-16 h-14 bg-green-600/90 border border-green-500 rounded-lg flex items-center justify-center text-white shadow-md transition-all duration-100 ease-out select-none transform scale-95";
+  const keyStyle = "w-16 h-12 bg-gray-800/90 hover:bg-gray-700/90 active:bg-gray-600/90 border border-gray-600 rounded-lg flex items-center justify-center text-white shadow-md transition-all duration-100 ease-out select-none";
+  const activeKeyStyle = "w-16 h-12 bg-green-600/90 border border-green-500 rounded-lg flex items-center justify-center text-white shadow-md transition-all duration-100 ease-out select-none transform scale-95";
 
   return (
-    <div className={`inline-flex flex-col items-center gap-2 ${className}`} style={{ touchAction: 'manipulation' }}>
+    <div className={`inline-flex flex-col items-center gap-1.5 ${className}`} style={{ touchAction: 'manipulation' }}>
       {/* Top row - Up arrow */}
       <div className="flex justify-center">
         <button

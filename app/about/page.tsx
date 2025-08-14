@@ -8,7 +8,7 @@ import { SiFarcaster, SiX, SiGithub } from 'react-icons/si';  // Added FaHeart f
 import { FaTelegramPlane, FaHeart, FaExclamationCircle, FaCheckCircle, FaInfoCircle, FaWallet } from 'react-icons/fa';
 import { BiNetworkChart } from 'react-icons/bi';
 import { useMiniAppContext } from '@/hooks/use-miniapp-context'; // Added for Farcaster SDK actions
-import { sdk } from '@farcaster/frame-sdk';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 // Wagmi and Viem imports for donation
 import { useAccount, useSendTransaction, useSwitchChain } from 'wagmi';

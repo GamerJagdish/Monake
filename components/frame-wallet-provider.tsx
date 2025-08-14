@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { farcasterFrame } from "@farcaster/frame-wagmi-connector";
+import { farcasterMiniApp } from "@farcaster/miniapp-wagmi-connector";
 import { injected } from "wagmi/connectors";
 import { createConfig, http, WagmiProvider } from "wagmi";
 import { monadTestnet } from "wagmi/chains";
@@ -10,9 +10,9 @@ export const config = createConfig({
     [monadTestnet.id]: http(),
   },
   connectors: [
-    farcasterFrame({
+    farcasterMiniApp(
       // Add any specific configuration if needed
-    }),
+    ),
     injected({
       // Add specific configuration for injected connector
       shimDisconnect: true,

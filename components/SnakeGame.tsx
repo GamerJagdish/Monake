@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { useMotionValue, motion, animate, AnimatePresence } from "motion/react"; // Updated import, added AnimatePresence
 import { BackgroundGradientAnimation } from "@/components/ui/BackgroundGradientAnimation";
 import { Volume2, VolumeX } from 'lucide-react'; // Import icons
-import { sdk } from '@farcaster/frame-sdk';
+import { sdk } from '@farcaster/miniapp-sdk';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context"; // Added import
 import { APP_URL } from "@/lib/constants"; // Added import
 import VirtualArrowKeys from "@/components/ui/VirtualArrowKeys"; // Added import
@@ -397,7 +397,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       // Get Farcaster user data if available
       const farcasterID = farcasterUser?.fid || 0;
       const username = farcasterUser?.username || '';
-      
+
       // Create dummy game data for entry fee
       const gameData = {
         gameStartTime: Date.now() - 1000,
@@ -609,30 +609,23 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
     // Cleanup function to prevent memory leaks
     return () => {
-      if (eatSoundRef.current) {
-        eatSoundRef.current.pause();
-        eatSoundRef.current.src = '';
-        eatSoundRef.current = null;
-      }
-      if (superEatSoundRef.current) {
-        superEatSoundRef.current.pause();
-        superEatSoundRef.current.src = '';
-        superEatSoundRef.current = null;
-      }
-      if (startSoundRef.current) {
-        startSoundRef.current.pause();
-        startSoundRef.current.src = '';
-        startSoundRef.current = null;
-      }
-      if (gameOverSoundRef.current) {
-        gameOverSoundRef.current.pause();
-        gameOverSoundRef.current.src = '';
-        gameOverSoundRef.current = null;
-      }
+      // Safely pause and cleanup audio elements
+      [eatSoundRef, superEatSoundRef, startSoundRef, gameOverSoundRef].forEach(soundRef => {
+        if (soundRef.current) {
+          try {
+            soundRef.current.pause();
+            soundRef.current.currentTime = 0;
+            soundRef.current.src = '';
+          } catch (error) {
+            // Ignore cleanup errors
+          }
+          soundRef.current = null;
+        }
+      });
     };
   }, []); // Dependency array can be empty if isMuted is handled by prop
 
-  const playSound = useCallback((soundType: 'eat' | 'super_eat' | 'start' | 'game_over') => {
+  const playSound = useCallback(async (soundType: 'eat' | 'super_eat' | 'start' | 'game_over') => {
     if (isMuted) return; // Uses the isMuted prop
     let soundToPlay: HTMLAudioElement | null = null;
     if (soundType === 'eat') {
@@ -646,8 +639,18 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     }
 
     if (soundToPlay) {
-      soundToPlay.currentTime = 0; // Rewind to start
-      soundToPlay.play().catch(error => console.error(`Error playing ${soundType} sound:`, error));
+      try {
+        // Reset to beginning first
+        soundToPlay.currentTime = 0;
+        // Properly handle the play Promise
+        await soundToPlay.play();
+      } catch (error) {
+        // Silently handle play interruptions and other audio errors
+        // This prevents console spam while maintaining functionality
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error(`Error playing ${soundType} sound:`, error);
+        }
+      }
     }
   }, [isMuted]);
 
@@ -868,10 +871,18 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   // Play start sound when countdown begins
   useEffect(() => {
     if (isGameStarting && countdownValue === 3 && !isMuted && startSoundRef.current) {
-      startSoundRef.current.currentTime = 0;
-      startSoundRef.current.play().catch(error =>
-        console.error('Error playing start sound:', error)
-      );
+      const playStartSound = async () => {
+        try {
+          startSoundRef.current!.currentTime = 0;
+          await startSoundRef.current!.play();
+        } catch (error: any) {
+          // Silently handle AbortError, log others
+          if (error.name !== 'AbortError') {
+            console.error('Error playing start sound:', error);
+          }
+        }
+      };
+      playStartSound();
     }
   }, [isGameStarting, countdownValue, isMuted]);
 
@@ -960,7 +971,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       // Get Farcaster user data
       const farcasterID = farcasterUser?.fid || 0;
       const username = farcasterUser?.username || '';
-      
+
       // Create game data for score submission
       const gameData = {
         gameStartTime: Date.now() - Math.max(30000, score * 1000), // Reasonable game duration based on score
@@ -1308,7 +1319,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             {/* Game Over Modal */}
             {gameOver && (
               <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 rounded-lg">
-                <Image src="/images/ded-snake-lol.png" alt="Game Over Snake" width={200} height={200} className="mb-3" priority />
+                <Image src="/images/ded-snake-lol.png" alt="Game Over Snake" width={200} height={200} style={{ width: '70%', height: 'auto' }} className="mb-3" priority />
                 <p className="text-5xl font-bold text-red-500 mb-2 animate-pulse">Game Over</p>
                 <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
 
@@ -1317,14 +1328,14 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                   !isConnected ? (
                     <Button
                       onClick={() => connectors.length > 0 && connect({ connector: connectors[0] })}
-                      className="w-3/4 py-2 text-base bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-3/4 py-3 text-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       Connect Wallet
                     </Button>
                   ) : chainId !== monadTestnet.id ? (
                     <Button
                       onClick={() => switchChain && switchChain({ chainId: monadTestnet.id })}
-                      className="w-3/4 py-2 text-base bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-3/4 py-3 text-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       Switch to Monad Testnet to Save Score
                     </Button>
@@ -1345,7 +1356,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                           <Button
                             onClick={submitPlayerScore}
                             disabled={isAttemptingScoreSubmission || score <= 0 || isPayingFee || isConfirmingFee}
-                            className="w-3/4 py-2 text-base bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="w-3/4 py-3 text-lg bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             {isAttemptingScoreSubmission ? 'Processing...' : (isNewHighScore ? `Submit New High Score!` : `Submit Score`)}
                           </Button>
@@ -1354,7 +1365,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                         <Button
                           onClick={handlePayEntryFeeToSaveScore}
                           disabled={isPayingFee || isConfirmingFee || isLoadingHasPaid || isLoadingEntryFee || isAttemptingScoreSubmission}
-                          className="w-3/4 py-2 text-base bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="w-3/4 py-3 text-lg bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
                           {isPayingFee ? 'Sending Tx...'
                             : isConfirmingFee ? 'Confirming Tx...'
@@ -1403,13 +1414,13 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                 <div className="flex space-x-3 mt-2">
                   <Button
                     onClick={restartGame}
-                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-1.5 px-3 rounded-lg text-base shadow-md transition-transform transform hover:scale-105"
+                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"
                   >
                     Restart
                   </Button>
                   <Button
                     onClick={onBackToMenu}
-                    className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-1.5 px-3 rounded-lg text-base shadow-md transition-transform transform hover:scale-105"
+                    className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"
                   >
                     Menu
                   </Button>
@@ -1433,7 +1444,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                       });
                     }
                   }}
-                  className="mt-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-1.5 px-3 rounded-lg text-base shadow-md transition-transform transform hover:scale-105"
+                  className="mt-3 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"
                   disabled={!actions} // Disable if actions are not available
                 >
                   Share Score
