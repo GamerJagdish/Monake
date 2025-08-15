@@ -212,13 +212,13 @@ const MainMenu: React.FC = () => {
 
       console.log('Starting entry fee payment process...');
       resetPayFee();
-      
+
       // Get Farcaster user data if available
       const farcasterID = farcasterUser?.fid || 0;
       const username = farcasterUser?.username || '';
-      
+
       console.log('Farcaster data:', { farcasterID, username });
-      
+
       // Create dummy game data for entry fee
       const gameData = {
         gameStartTime: Date.now() - 1000,
@@ -231,7 +231,7 @@ const MainMenu: React.FC = () => {
       console.log('Getting signed entry fee...');
       // Get signed entry fee from server
       const signedFee = await getSignedEntryFee(
-        address,
+        address as string,
         entryFeeAmount.toString(),
         gameData,
         farcasterID,
@@ -275,7 +275,7 @@ const MainMenu: React.FC = () => {
     // Automatically add frame on load
     const addFrameOnLoad = async () => {
       try {
-        await sdk.actions.addFrame();
+        await sdk.actions.addMiniApp();
       } catch (error: any) {
         if (error && error.message && error.message.includes("Cannot read properties of undefined (reading 'result')")) {
           // It's okay to not show an alert here if the user isn't explicitly clicking a button.
@@ -472,7 +472,7 @@ const MainMenu: React.FC = () => {
                     ×
                   </button>
                   <p className="text-xs text-slate-200 leading-tight pr-4">
-                    🎮 <span className="font-medium text-purple-300">Virtual keypad added!</span><br/> <span className="text-yellow-300">Season 2</span> coming soon! (massive rewards) <br/>Feedback in <span 
+                    🎮 <span className="font-medium text-purple-300">Virtual keypad added!</span><br /> <span className="text-yellow-300">Season 2</span> coming soon! (massive rewards) <br />Feedback in <span
                       className="text-blue-300 underline cursor-pointer hover:text-blue-200 transition-colors"
                       onClick={handleAboutClick}
                     >About</span> 🚀

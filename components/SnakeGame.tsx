@@ -1427,8 +1427,18 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                 </div>
                 {/* Share on Farcaster Button */}
                 <Button
-                  onClick={() => {
-                    if (actions) {
+                  onClick={async () => {
+                    try {
+                      if (!actions) {
+                        console.error('Farcaster actions not available');
+                        return;
+                      }
+
+                      if (!APP_URL) {
+                        console.error('APP_URL not configured');
+                        return;
+                      }
+
                       const shareMessages = [
                         `I scored ${score} in the Monad Snake Game! Can you beat my score? 🐍🎮`,
                         `Just hit ${score} points in the Monad Snake Game! Challenge me! 🚀`,
@@ -1436,12 +1446,56 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                         `Can anyone beat my ${score} points in the Monad Snake Game? Give it a shot! 🏆`,
                         `Feeling proud of my ${score} in the Monad Snake Game! Join the fun! 🎉`
                       ];
+                      
                       const randomIndex = Math.floor(Math.random() * shareMessages.length);
                       const selectedMessage = shareMessages[randomIndex];
-                      actions.composeCast({
-                        text: selectedMessage,
-                        embeds: [`${APP_URL}`],
+                      
+                      // Generate random style (1-10) for OG image
+                      const randomStyle = Math.floor(Math.random() * 10) + 1;
+                      
+                      // Generate OG image URL with user data, score, and random style
+                      const username = farcasterUser?.username || 'Player';
+                      const profileImage = farcasterUser?.pfpUrl || '';
+                      
+                      // Build URL parameters safely
+                      const params = new URLSearchParams({
+                        username: username,
+                        score: score.toString(),
+                        style: randomStyle.toString()
                       });
+                      
+                      // Only add image parameter if it exists and is not empty
+                      if (profileImage && profileImage.trim() !== '') {
+                        params.append('image', profileImage);
+                      }
+                      
+                      const ogImageUrl = `${APP_URL}/api/og?${params.toString()}`;
+                      
+                      // Validate URL before using
+                      try {
+                        new URL(ogImageUrl);
+                      } catch (urlError) {
+                        console.error('Invalid OG image URL:', urlError);
+                        return;
+                      }
+                      
+                      // Try to compose cast with OG image first
+                      try {
+                        await actions.composeCast({
+                          text: selectedMessage,
+                          embeds: [ogImageUrl, APP_URL],
+                        });
+                      } catch (castError) {
+                        console.warn('Failed to compose cast with OG image, trying without:', castError);
+                        // Fallback: compose cast without OG image
+                        await actions.composeCast({
+                          text: selectedMessage,
+                          embeds: [APP_URL],
+                        });
+                      }
+                    } catch (error) {
+                      console.error('Error sharing score:', error);
+                      // You could add a toast notification here if you have one
                     }
                   }}
                   className="mt-3 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-lg shadow-md transition-transform transform hover:scale-105"

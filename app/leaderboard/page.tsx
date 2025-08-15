@@ -318,7 +318,7 @@ const LeaderboardPage: React.FC = () => {
 
       // Process in batches to avoid overwhelming the RPC
       const batchSize = 50;
-      const playerData: { player: string; score: bigint; farcasterID: number }[] = [];
+      const playerData: { player: string; score: bigint; farcasterID: number; username: string }[] = [];
 
       for (let i = 0; i < dailyParticipants.length; i += batchSize) {
         const batch = dailyParticipants.slice(i, i + batchSize);
@@ -333,11 +333,12 @@ const LeaderboardPage: React.FC = () => {
               args: [player],
             }) as [bigint, bigint, bigint, string, boolean]; // [currentScore, allTimeHighScore, farcasterID, username, hasPaidToday]
             
-            const [currentScore, , farcasterID] = profile;
+            const [currentScore, , farcasterID, username] = profile;
             return { 
               player, 
               score: currentScore, 
-              farcasterID: Number(farcasterID) 
+              farcasterID: Number(farcasterID),
+              username: username || ''
             };
           } catch (error) {
             console.warn(`[fetchLeaderboard] Failed to get profile for player ${player}:`, error);
@@ -348,10 +349,10 @@ const LeaderboardPage: React.FC = () => {
                 functionName: 'getPlayerScoreForDay',
                 args: [player, currentDay],
               }) as bigint;
-              return { player, score, farcasterID: 0 };
+              return { player, score, farcasterID: 0, username: '' };
             } catch (scoreError) {
               console.warn(`[fetchLeaderboard] Failed to get score for player ${player}:`, scoreError);
-              return { player, score: 0n, farcasterID: 0 };
+              return { player, score: 0n, farcasterID: 0, username: '' };
             }
           }
         });
@@ -374,7 +375,7 @@ const LeaderboardPage: React.FC = () => {
 
       // Initial leaderboard with wallet addresses and farcaster IDs
       const initialLeaderboard: LeaderboardEntry[] = sortedPlayerData
-        .map(({ player, score, farcasterID }, index) => ({
+        .map(({ player, score, farcasterID, username }, index) => ({
           rank: index + 1,
           player,
           score: Number(score),
@@ -386,11 +387,29 @@ const LeaderboardPage: React.FC = () => {
       setLeaderboardData(initialLeaderboard);
 
       // Function to fetch a single profile
-      const fetchProfile = async (address: string): Promise<{ displayName?: string; avatar?: string; identity?: string } | null> => {
+      const fetchProfile = async (address: string, contractData?: { farcasterID?: number; username?: string }): Promise<{ displayName?: string; avatar?: string; identity?: string } | null> => {
         try {
           const response = await fetch(`/api/web3bio?address=${address}`);
 
-          if (response.status === 404 || !response.ok) {
+          if (response.status === 404) {
+            // Handle 404 by creating dummy profile from contract data
+            if (contractData?.username && contractData.username.length > 0) {
+              return {
+                displayName: contractData.username,
+                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`, // Generate dummy avatar
+                identity: contractData.username
+              };
+            } else if (contractData?.farcasterID && contractData.farcasterID > 0) {
+              return {
+                displayName: `User ${contractData.farcasterID}`,
+                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`, // Generate dummy avatar
+                identity: `user-${contractData.farcasterID}`
+              };
+            }
+            return null;
+          }
+
+          if (!response.ok) {
             return null;
           }
 
@@ -427,9 +446,9 @@ const LeaderboardPage: React.FC = () => {
       // Fetch profiles in background
       const fetchProfilesInBackground = async () => {
         // Process profiles sequentially in order of rank
-        for (const { player } of sortedPlayerData) {
+        for (const { player, farcasterID, username } of sortedPlayerData) {
           // Always try to fetch profile data from web3bio for display names and avatars
-          const profile = await fetchProfile(player);
+          const profile = await fetchProfile(player, { farcasterID, username });
           if (profile) {
             updateLeaderboardWithProfile(player, profile);
           }
