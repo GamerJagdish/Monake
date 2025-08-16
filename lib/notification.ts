@@ -1,4 +1,4 @@
-import type { FrameNotificationDetails } from "@farcaster/miniapp-sdk";
+import type { MiniAppNotificationDetails } from "@farcaster/miniapp-sdk";
 import { getRedis } from "./redis";
 
 let notificationServiceKey =
@@ -13,19 +13,19 @@ function getUserNotificationDetailsKey(fid: number): string {
 
 export async function getUserNotificationDetails(
   fid: number,
-): Promise<FrameNotificationDetails | null> {
+): Promise<MiniAppNotificationDetails | null> {
   const redis = getRedis();
   if (!redis) {
     return null;
   }
 
-  return await redis.get<FrameNotificationDetails>(
+  return await redis.get<MiniAppNotificationDetails>(
     getUserNotificationDetailsKey(fid),
   );
 }
 
 export async function getAllUserNotificationDetails(): Promise<
-  { fid: number; notificationDetails: FrameNotificationDetails }[]
+  { fid: number; notificationDetails: MiniAppNotificationDetails }[]
 > {
   const redis = getRedis();
   if (!redis) {
@@ -51,16 +51,16 @@ export async function getAllUserNotificationDetails(): Promise<
     return []; // Stop processing if scan fails
   }
 
-  const allResultsMap = new Map<number, FrameNotificationDetails>();
+  const allResultsMap = new Map<number, MiniAppNotificationDetails>();
   const filteredOutKeys: string[] = [];
 
   if (allScannedKeys.length > 0) {
     // Fetch all values for the scanned keys in one go if possible, or chunk if too many.
     // For simplicity here, we'll assume mget can handle it or Redis client chunks internally.
     // However, for very large number of keys, batching mget would be safer.
-    let values: (FrameNotificationDetails | null)[] = [];
+    let values: (MiniAppNotificationDetails | null)[] = [];
     try {
-      values = await redis.mget<FrameNotificationDetails[]>(...allScannedKeys);
+      values = await redis.mget<MiniAppNotificationDetails[]>(...allScannedKeys);
     } catch (mgetError) {
       // Decide if to proceed with partial data or return empty
       return [];
@@ -99,7 +99,7 @@ export async function getAllUserNotificationDetails(): Promise<
 
 
   // Convert map to the required array format
-  const result: { fid: number; notificationDetails: FrameNotificationDetails }[] = [];
+  const result: { fid: number; notificationDetails: MiniAppNotificationDetails }[] = [];
   for (const [fid, notificationDetails] of allResultsMap) {
     result.push({ fid, notificationDetails });
   }
@@ -108,7 +108,7 @@ export async function getAllUserNotificationDetails(): Promise<
 
 export async function setUserNotificationDetails(
   fid: number,
-  notificationDetails: FrameNotificationDetails,
+  notificationDetails: MiniAppNotificationDetails,
 ): Promise<void> {
   const redis = getRedis();
   if (!redis) {

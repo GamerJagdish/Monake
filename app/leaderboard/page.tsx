@@ -43,8 +43,16 @@ const LeaderboardPage: React.FC = () => {
   const [hasPaid, setHasPaid] = useState<boolean>(false);
   const [entryFeeAmount, setEntryFeeAmount] = useState<bigint>(parseEther('0.01'));
   const [currentDay, setCurrentDay] = useState<bigint | null>(null);
+  const [lastKnownDay, setLastKnownDay] = useState<bigint | null>(null);
   const publicClient = usePublicClient({ chainId: monadTestnet.id });
   // console.log('[LeaderboardPage] usePublicClient hook called. Initial publicClient (is it null/undefined?):', publicClient === null ? 'null' : publicClient === undefined ? 'undefined' : 'defined');
+
+  // Helper function to get current day timestamp (client-side calculation)
+  const getCurrentDayTimestamp = () => {
+    const now = new Date();
+    const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    return BigInt(Math.floor(utcMidnight.getTime() / 1000));
+  };
 
   // Function to handle Farcaster SDK profile viewing
   const handleFarcasterProfile = async (fid: number) => {
@@ -147,7 +155,19 @@ const LeaderboardPage: React.FC = () => {
     if (fetchedCurrentDay !== undefined && fetchedCurrentDay !== null) {
       try {
         const dayAsBigInt = BigInt(fetchedCurrentDay as any);
+        
+        // Check if day has changed
+        if (lastKnownDay !== null && dayAsBigInt !== lastKnownDay) {
+          console.log('[LeaderboardPage] Day changed detected! Clearing old data. Old day:', lastKnownDay, 'New day:', dayAsBigInt);
+          // Clear old data when day changes
+          setLeaderboardData([]);
+          setCurrentPrizePool('0');
+          setHighestScoreToday(0);
+          setHasPaid(false);
+        }
+        
         setCurrentDay(dayAsBigInt);
+        setLastKnownDay(dayAsBigInt);
         console.log('[LeaderboardPage] currentDay state successfully set to:', dayAsBigInt);
       } catch (e) {
         console.error('[LeaderboardPage] Error converting fetchedCurrentDay to BigInt:', fetchedCurrentDay, e);
@@ -156,7 +176,7 @@ const LeaderboardPage: React.FC = () => {
     } else {
       console.log('[LeaderboardPage] fetchedCurrentDay is undefined or null, currentDay not set. Value:', fetchedCurrentDay);
     }
-  }, [fetchedCurrentDay]);
+  }, [fetchedCurrentDay, lastKnownDay]);
 
   // Check if player has paid today
   const { data: fetchedHasPaid, refetch: refetchHasPaid } = useReadContract({
@@ -495,10 +515,23 @@ const LeaderboardPage: React.FC = () => {
     }
   }, [publicClient, currentDay, fetchLeaderboard]);
 
-  // Interval fetching
+  // Interval fetching and day change detection
   useEffect(() => {
     console.log('[LeaderboardPage] Setting up interval fetch. publicClient:', !!publicClient, 'currentDay:', currentDay);
     const interval = setInterval(() => {
+      // Check if day has changed based on client-side calculation
+      const clientCurrentDay = getCurrentDayTimestamp();
+      if (currentDay !== null && clientCurrentDay !== currentDay) {
+        console.log('[LeaderboardPage] Client-side day change detected! Clearing old data. Contract day:', currentDay, 'Client day:', clientCurrentDay);
+        // Clear old data immediately when client detects day change
+        setLeaderboardData([]);
+        setCurrentPrizePool('0');
+        setHighestScoreToday(0);
+        setHasPaid(false);
+        // Trigger contract day refetch
+        refetchCurrentDay();
+      }
+      
       console.log('[LeaderboardPage] Interval: Checking conditions to fetchLeaderboard. publicClient:', !!publicClient, 'currentDay:', currentDay);
       if (publicClient && currentDay !== null) {
         console.log('[LeaderboardPage] Interval: Conditions met, calling fetchLeaderboard.');
@@ -511,19 +544,29 @@ const LeaderboardPage: React.FC = () => {
       console.log('[LeaderboardPage] Clearing interval fetch.');
       clearInterval(interval);
     };
-  }, [publicClient, currentDay, fetchLeaderboard]);
+  }, [publicClient, currentDay, fetchLeaderboard, refetchCurrentDay]);
 
   // Log publicClient whenever it changes to ensure it's being created
   useEffect(() => {
     console.log('[LeaderboardPage] publicClient instance updated:', publicClient);
   }, [publicClient]);
 
-  // Initial fetch if not covered by above
+  // Initial fetch and client-side day change detection on mount
   useEffect(() => {
     if ((LEADERBOARD_CONTRACT_ADDRESS as string) !== '0xYOUR_CONTRACT_ADDRESS_HERE') {
       refetchCurrentDay(); // Initial fetch for current day
     }
-  }, [refetchCurrentDay]);
+    
+    // Also check for day change on component mount
+    const clientCurrentDay = getCurrentDayTimestamp();
+    if (currentDay !== null && clientCurrentDay !== currentDay) {
+      console.log('[LeaderboardPage] Mount: Day change detected! Clearing old data. Contract day:', currentDay, 'Client day:', clientCurrentDay);
+      setLeaderboardData([]);
+      setCurrentPrizePool('0');
+      setHighestScoreToday(0);
+      setHasPaid(false);
+    }
+  }, [refetchCurrentDay, currentDay]);
 
   // This useEffect was for the mock data, we'll replace its core logic
   // useEffect(() => {
@@ -617,7 +660,7 @@ const LeaderboardPage: React.FC = () => {
     // refetchPrizePool();
   }, [writeData]);
 
-  // Countdown to 00:00 UTC
+  // Countdown to 00:00 UTC and frequent day change detection
   const [timeToReset, setTimeToReset] = useState('');
   useEffect(() => {
     const calculateTimeToReset = () => {
@@ -628,11 +671,23 @@ const LeaderboardPage: React.FC = () => {
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
       setTimeToReset(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+      
+      // Check for day change every second (when countdown is running)
+      const clientCurrentDay = getCurrentDayTimestamp();
+      if (currentDay !== null && clientCurrentDay !== currentDay) {
+        console.log('[LeaderboardPage] Countdown: Day change detected! Clearing old data. Contract day:', currentDay, 'Client day:', clientCurrentDay);
+        setLeaderboardData([]);
+        setCurrentPrizePool('0');
+        setHighestScoreToday(0);
+        setHasPaid(false);
+        // Trigger contract day refetch
+        refetchCurrentDay();
+      }
     };
     calculateTimeToReset();
     const intervalId = setInterval(calculateTimeToReset, 1000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [currentDay, refetchCurrentDay]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-4 relative pb-24">

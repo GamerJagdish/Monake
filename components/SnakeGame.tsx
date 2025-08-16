@@ -8,7 +8,7 @@ import { parseEther, formatEther } from 'viem';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useMotionValue, motion, animate, AnimatePresence } from "motion/react"; // Updated import, added AnimatePresence
-import { BackgroundGradientAnimation } from "@/components/ui/BackgroundGradientAnimation";
+// import { BackgroundGradientAnimation } from "@/components/ui/BackgroundGradientAnimation";
 import { Volume2, VolumeX } from 'lucide-react'; // Import icons
 import { sdk } from '@farcaster/miniapp-sdk';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context"; // Added import

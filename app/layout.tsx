@@ -3,7 +3,7 @@ import { Poppins } from "next/font/google";
 import { FrameProvider } from "@/components/farcaster-provider";
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
- 
+
 import "./globals.css";
 
 const poppins = Poppins({
@@ -24,11 +24,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    
-    <html lang="en">
+
+    <html lang="en" suppressHydrationWarning>
       <body className={poppins.className}>
         <FrameProvider>{children}<SpeedInsights /><Analytics /></FrameProvider>
-        
+
       </body>
     </html>
   );
