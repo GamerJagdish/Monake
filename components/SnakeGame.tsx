@@ -1479,20 +1479,11 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                         return;
                       }
                       
-                      // Try to compose cast with OG image first
-                      try {
-                        await actions.composeCast({
-                          text: selectedMessage,
-                          embeds: [ogImageUrl, APP_URL],
-                        });
-                      } catch (castError) {
-                        console.warn('Failed to compose cast with OG image, trying without:', castError);
-                        // Fallback: compose cast without OG image
-                        await actions.composeCast({
-                          text: selectedMessage,
-                          embeds: [APP_URL],
-                        });
-                      }
+                      // Temporarily disabled OG image sharing - only share text and app URL
+                      await actions.composeCast({
+                        text: selectedMessage,
+                        embeds: [APP_URL],
+                      });
                     } catch (error) {
                       console.error('Error sharing score:', error);
                       // You could add a toast notification here if you have one
