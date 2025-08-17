@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 // import Link from 'next/link'; // No longer directly using Link for About button
 // Import useRouter
 import { BackgroundGradientAnimation } from './BackgroundGradientAnimation';
-import { Volume2, VolumeX, ArrowDown } from 'lucide-react';
+import { Volume2, VolumeX, ArrowDown, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { SiFarcaster } from 'react-icons/si';
 import { useReadContract, useWriteContract } from 'wagmi'; // Added for contract interaction
 import { parseEther, formatEther } from 'viem'; // Added for ETH formatting
@@ -55,6 +55,14 @@ const SnakeGame = dynamic(() => import('../SnakeGame'), {
 const LEADERBOARD_CONTRACT_ADDRESS = '0x9c36dd7af3c84727c43560f32f824067005a210c';
 const LeaderboardABI = SECURE_LEADERBOARD_ABI;
 
+// Define notification type
+interface NotificationMessage {
+  id: string;
+  type: 'success' | 'error' | 'info';
+  message: string;
+  title?: string;
+}
+
 const MainMenu: React.FC = () => {
   const router = useRouter(); // Initialize useRouter
   const [showSnakeGame, setShowSnakeGame] = useState(false);
@@ -65,6 +73,7 @@ const MainMenu: React.FC = () => {
   const [entryFeeAmount, setEntryFeeAmount] = useState<bigint>(parseEther('0.01'));
   const [hasPaidForToday, setHasPaidForToday] = useState<boolean>(false);
   const [playerAllTimeHighScore, setPlayerAllTimeHighScore] = useState<bigint | null>(null);
+  const [notification, setNotification] = useState<NotificationMessage | null>(null);
   const { writeContract, isPending: isPayingFee, data: payFeeData, reset: resetPayFee, error: payFeeError } = useWriteContract();
 
 
@@ -88,6 +97,11 @@ const MainMenu: React.FC = () => {
   const handleBannerDismiss = () => {
     setShowBanner(false);
     localStorage.setItem('monake-banner-dismissed', 'true');
+  };
+
+  // Handle notification dismissal
+  const dismissNotification = () => {
+    setNotification(null);
   };
 
   // Fetch entry fee amount
@@ -142,7 +156,12 @@ const MainMenu: React.FC = () => {
 
   useEffect(() => {
     if (payFeeData) { // Transaction sent
-      alert('Entry fee transaction submitted! Waiting for confirmation...');
+      setNotification({
+        id: 'pay-fee-success',
+        type: 'success',
+        message: 'Entry fee transaction submitted! Waiting for confirmation...',
+        title: 'Transaction Submitted',
+      });
       // After confirmation, refetch payment status
       const checkConfirmation = async () => {
         // Simple timeout based refetch, ideally use useWaitForTransactionReceipt
@@ -153,14 +172,46 @@ const MainMenu: React.FC = () => {
       checkConfirmation();
     }
     if (payFeeError) {
-      alert(`Failed to send transaction: ${payFeeError.message}`);
+      // Simplify error messages for users
+      let errorMessage = 'Transaction failed';
+      if (payFeeError.message.includes('User rejected')) {
+        errorMessage = 'Transaction cancelled by user';
+      } else if (payFeeError.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds';
+      } else if (payFeeError.message.includes('network')) {
+        errorMessage = 'Network error - please try again';
+      }
+
+      setNotification({
+        id: 'pay-fee-error',
+        type: 'error',
+        message: errorMessage,
+        title: 'Payment Failed',
+      });
     }
   }, [payFeeData, refetchHasPaid, payFeeError]);
+
+  // Auto-dismiss all notifications after 4 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   const handlePayEntryFee = async () => {
     try {
       if (!isConnected || !address) {
-        alert('Please connect your wallet first.');
+        // alert('Please connect your wallet first.');
+        // Replace with a more user-friendly notification
+        setNotification({
+          id: 'connect-wallet-error',
+          type: 'error',
+          message: 'Connect wallet first',
+          title: 'Wallet Required',
+        });
         if (connectors.length > 0 && !isConnected) {
           // Try to connect with the first available connector
           try {
@@ -169,7 +220,13 @@ const MainMenu: React.FC = () => {
             await new Promise(resolve => setTimeout(resolve, 1000));
           } catch (connectError) {
             console.error('Connection error:', connectError);
-            alert('Failed to connect wallet. Please try again.');
+            // alert('Failed to connect wallet. Please try again.');
+            setNotification({
+              id: 'connect-wallet-error',
+              type: 'error',
+              message: 'Connection failed',
+              title: 'Wallet Error',
+            });
             return;
           }
         } else {
@@ -179,9 +236,22 @@ const MainMenu: React.FC = () => {
 
       // Check chain ID first before proceeding with any other operations
       if (chainId !== monadTestnet.id) {
-        alert('Please switch to Monad Testnet to continue.');
+        // alert('Please switch to Monad Testnet to continue.');
+        // Replace with a more user-friendly notification
+        setNotification({
+          id: 'switch-network-error',
+          type: 'error',
+          message: 'Switch to Monad Testnet',
+          title: 'Wrong Network',
+        });
         if (!switchChain) {
-          alert('Chain switching is not available with your current wallet setup. Please switch to Monad Testnet manually.');
+          // alert('Chain switching is not available with your current wallet setup. Please switch to Monad Testnet manually.');
+          setNotification({
+            id: 'switch-network-error',
+            type: 'error',
+            message: 'Switch to Monad Testnet manually',
+            title: 'Network Switch',
+          });
           return;
         }
         try {
@@ -192,21 +262,48 @@ const MainMenu: React.FC = () => {
           await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (error) {
           console.error('Failed to switch chain:', error);
-          alert('Failed to switch network. Please switch to Monad Testnet manually in your wallet.');
+          // alert('Failed to switch network. Please switch to Monad Testnet manually in your wallet.');
+          setNotification({
+            id: 'switch-network-error',
+            type: 'error',
+            message: 'Switch network manually in wallet',
+            title: 'Network Error',
+          });
           return;
         }
       }
 
       if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
-        alert('Leaderboard contract address is not set. Please inform the developer.');
+        // alert('Leaderboard contract address is not set. Please inform the developer.');
+        // Replace with a more user-friendly notification
+        setNotification({
+          id: 'contract-address-error',
+          type: 'error',
+          message: 'Service temporarily unavailable',
+          title: 'System Error',
+        });
         return;
       }
       if (hasPaidForToday) {
-        alert('You have already paid the entry fee for today.');
+        // alert('You have already paid the entry fee for today.');
+        // Replace with a more user-friendly notification
+        setNotification({
+          id: 'already-paid-error',
+          type: 'info',
+          message: 'Daily pass already active',
+          title: 'Already Paid',
+        });
         return;
       }
       if (isLoadingEntryFee || !entryFeeAmount || entryFeeAmount === 0n) {
-        alert('Entry fee not loaded yet. Please wait a moment.');
+        // alert('Entry fee not loaded yet. Please wait a moment.');
+        // Replace with a more user-friendly notification
+        setNotification({
+          id: 'entry-fee-not-loaded-error',
+          type: 'info',
+          message: 'Loading fee info...',
+          title: 'Please Wait',
+        });
         return;
       }
 
@@ -263,7 +360,25 @@ const MainMenu: React.FC = () => {
       console.log('Is connected:', isConnected);
     } catch (error) {
       console.error('Error in handlePayEntryFee:', error);
-      alert(`Error paying entry fee: ${error instanceof Error ? error.message : String(error)}`);
+
+      // Simplify error messages for users
+      let errorMessage = 'Payment failed - please try again';
+      if (error instanceof Error) {
+        if (error.message.includes('User rejected')) {
+          errorMessage = 'Transaction cancelled';
+        } else if (error.message.includes('insufficient funds')) {
+          errorMessage = 'Insufficient funds';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error';
+        }
+      }
+
+      setNotification({
+        id: 'pay-fee-error',
+        type: 'error',
+        message: errorMessage,
+        title: 'Payment Error',
+      });
     }
   };
 
@@ -331,6 +446,45 @@ const MainMenu: React.FC = () => {
         fourthColor="200, 50, 50"
         fifthColor="180, 180, 50"
       />
+
+      {/* Notification Component */}
+      {notification && (
+        <motion.div
+          className="fixed top-4 left-4 right-4 z-50 mx-auto max-w-sm"
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className={`p-3 rounded-lg shadow-lg border backdrop-blur-sm ${notification.type === 'success'
+            ? 'bg-green-600/95 border-green-400 text-white'
+            : notification.type === 'error'
+              ? 'bg-red-600/95 border-red-400 text-white'
+              : 'bg-blue-600/95 border-blue-400 text-white'
+            }`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {notification.type === 'success' && <CheckCircle className="w-4 h-4 flex-shrink-0" />}
+                {notification.type === 'error' && <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+                {notification.type === 'info' && <Info className="w-4 h-4 flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  {notification.title && (
+                    <h4 className="font-medium text-xs mb-0.5 truncate">{notification.title}</h4>
+                  )}
+                  <p className="text-xs leading-tight">{notification.message}</p>
+                </div>
+              </div>
+              <button
+                onClick={dismissNotification}
+                className="text-white/80 hover:text-white transition-colors flex-shrink-0 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {isLoadingAbout || isLoadingLeaderboard ? (
         <div className="absolute z-50 inset-0 flex items-center justify-center text-white font-bold px-4 pointer-events-none text-3xl text-center md:text-4xl lg:text-7xl">
           <p className="bg-clip-text text-transparent drop-shadow-2xl bg-gradient-to-b from-white/80 to-white/20">
