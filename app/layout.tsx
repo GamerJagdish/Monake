@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import { FrameProvider } from "@/components/farcaster-provider";
-import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
 
 import "./globals.css";
@@ -27,7 +26,7 @@ export default function RootLayout({
 
     <html lang="en" suppressHydrationWarning>
       <body className={poppins.className}>
-        <FrameProvider>{children}<SpeedInsights /><Analytics /></FrameProvider>
+        <FrameProvider>{children}<Analytics /></FrameProvider>
 
       </body>
     </html>
