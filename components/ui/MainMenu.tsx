@@ -1,5 +1,12 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+
+// Add type declaration for window.ethereum
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -256,7 +263,40 @@ const MainMenu: React.FC = () => {
         }
         try {
           console.log(`Attempting to switch from chain ${chainId} to ${monadTestnet.id}`);
-          await switchChain({ chainId: monadTestnet.id });
+          
+          // Try to switch chain with error handling for getChainId issues
+          if (switchChain) {
+            await switchChain({ chainId: monadTestnet.id });
+          } else {
+            // Fallback: try to switch using window.ethereum directly
+            if (typeof window !== 'undefined' && window.ethereum) {
+              try {
+                await window.ethereum.request({
+                  method: 'wallet_switchEthereumChain',
+                  params: [{ chainId: `0x${monadTestnet.id.toString(16)}` }],
+                });
+              } catch (switchError: any) {
+                // If the chain doesn't exist, add it
+                if (switchError.code === 4902) {
+                  await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                      chainId: `0x${monadTestnet.id.toString(16)}`,
+                      chainName: 'Monad Testnet',
+                      nativeCurrency: {
+                        name: 'MON',
+                        symbol: 'MON',
+                        decimals: 18,
+                      },
+                      rpcUrls: ['https://testnet-rpc.monad.xyz'],
+                      blockExplorerUrls: ['https://testnet.monvision.io'],
+                    }],
+                  });
+                }
+              }
+            }
+          }
+          
           console.log(`Successfully switched to chain ${monadTestnet.id}`);
           // Wait a bit for the chain switch to be reflected
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -571,12 +611,48 @@ const MainMenu: React.FC = () => {
                       Connected: {address?.substring(0, 6)}...{address?.substring(address.length - 4)} ({chainId ? (chainIdToName[chainId] || `ID ${chainId}`) : 'N/A'})
                     </p>
 
-                    {chainId !== monadTestnet.id && chainId && switchChain && (
+                    {chainId !== monadTestnet.id && chainId && (
                       <motion.button
                         whileHover={{ scale: 1.05, backgroundColor: "#4A5568" }}
                         whileTap={{ scale: 0.95 }}
                         className="w-full py-2 text-xs bg-slate-600 hover:bg-slate-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out border border-slate-500"
-                        onClick={() => switchChain({ chainId: monadTestnet.id })}
+                        onClick={async () => {
+                          try {
+                            if (switchChain) {
+                              await switchChain({ chainId: monadTestnet.id });
+                            } else {
+                              // Fallback: try to switch using window.ethereum directly
+                              if (typeof window !== 'undefined' && window.ethereum) {
+                                try {
+                                  await window.ethereum.request({
+                                    method: 'wallet_switchEthereumChain',
+                                    params: [{ chainId: `0x${monadTestnet.id.toString(16)}` }],
+                                  });
+                                } catch (switchError: any) {
+                                  // If the chain doesn't exist, add it
+                                  if (switchError.code === 4902) {
+                                    await window.ethereum.request({
+                                      method: 'wallet_addEthereumChain',
+                                      params: [{
+                                        chainId: `0x${monadTestnet.id.toString(16)}`,
+                                        chainName: 'Monad Testnet',
+                                        nativeCurrency: {
+                                          name: 'MON',
+                                          symbol: 'MON',
+                                          decimals: 18,
+                                        },
+                                        rpcUrls: ['https://testnet-rpc.monad.xyz'],
+                                        blockExplorerUrls: ['https://testnet.monvision.io'],
+                                      }],
+                                    });
+                                  }
+                                }
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Failed to switch chain:', error);
+                          }
+                        }}
                       >
                         Switch to Monad Testnet
                       </motion.button>
@@ -584,7 +660,25 @@ const MainMenu: React.FC = () => {
                     <motion.button
                       whileHover={{ scale: 1.05, backgroundColor: "#C53030" }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => disconnect()}
+                      onClick={() => {
+                        try {
+                          disconnect();
+                          setNotification({
+                            id: 'disconnect-success',
+                            type: 'success',
+                            message: 'Wallet disconnected successfully',
+                            title: 'Disconnected',
+                          });
+                        } catch (error) {
+                          console.error('Failed to disconnect:', error);
+                          setNotification({
+                            id: 'disconnect-error',
+                            type: 'error',
+                            message: 'Failed to disconnect wallet. Please try again.',
+                            title: 'Disconnect Error',
+                          });
+                        }
+                      }}
                       className="w-full py-2 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
                     >
                       Disconnect Wallet
@@ -595,10 +689,26 @@ const MainMenu: React.FC = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
-                      if (connectors && connectors.length > 0) {
-                        connect({ connector: connectors[0] });
-                      } else {
-                        console.error('No connectors found.');
+                      try {
+                        if (connectors && connectors.length > 0) {
+                          connect({ connector: connectors[0] });
+                        } else {
+                          console.error('No connectors found.');
+                          setNotification({
+                            id: 'connect-error',
+                            type: 'error',
+                            message: 'No wallet connectors available. Please refresh the page.',
+                            title: 'Connection Error',
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Failed to connect:', error);
+                        setNotification({
+                          id: 'connect-error',
+                          type: 'error',
+                          message: 'Failed to connect wallet. Please try again.',
+                          title: 'Connection Error',
+                        });
                       }
                     }}
                     className="w-full py-3 text-lg sm:text-xl bg-indigo-500 hover:bg-indigo-600 mt-3 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"

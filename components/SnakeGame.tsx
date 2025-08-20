@@ -1,5 +1,12 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+// Add type declaration for window.ethereum
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 import Image from 'next/image'; // Added for game over image
 // Wagmi imports for leaderboard interaction
 import { useAccount, useSwitchChain, useReadContract, useWriteContract, useWaitForTransactionReceipt, useConnect, useDisconnect } from 'wagmi';
@@ -9,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useMotionValue, motion, animate, AnimatePresence } from "motion/react"; // Updated import, added AnimatePresence
 // import { BackgroundGradientAnimation } from "@/components/ui/BackgroundGradientAnimation";
-import { Volume2, VolumeX } from 'lucide-react'; // Import icons
+import { Volume2, VolumeX, X, CheckCircle, AlertCircle, Info } from 'lucide-react'; // Added notification icons
 import { sdk } from '@farcaster/miniapp-sdk';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context"; // Added import
 import { APP_URL } from "@/lib/constants"; // Added import
@@ -85,6 +92,14 @@ interface SuperFoodState extends Position {
   timer: number;
 }
 
+// Define notification type
+interface NotificationMessage {
+  id: string;
+  type: 'success' | 'error' | 'info';
+  message: string;
+  title?: string;
+}
+
 interface SnakeGameProps {
   onBackToMenu: () => void;
   isMuted: boolean; // Add isMuted prop
@@ -94,7 +109,7 @@ interface SnakeGameProps {
 const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted }) => {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
-  const { address, isConnected, chainId } = useAccount();
+  const { address, isConnected, chainId, connector } = useAccount();
   const { switchChain } = useSwitchChain();
   // Renaming writeContract for submitScore for clarity
   const { writeContract: submitScoreContract, isPending: isSubmittingScoreTx, data: submitScoreTxHash, reset: resetSubmitScoreTx, error: submitScoreTxError } = useWriteContract();
@@ -111,6 +126,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const [hasSubmittedScore, setHasSubmittedScore] = useState<boolean>(false); // Track if score has been submitted for current game
   const [playerAllTimeHighScore, setPlayerAllTimeHighScore] = useState<bigint | null>(null);
   const [isNewHighScore, setIsNewHighScore] = useState<boolean>(false);
+  const [notification, setNotification] = useState<NotificationMessage | null>(null);
 
   // Hook to wait for the transaction receipt for fee payment
   const { data: feeTxReceipt, isLoading: isLoadingFeeTxReceipt, isSuccess: isFeeTxSuccess } = useWaitForTransactionReceipt({
@@ -133,6 +149,21 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     },
     confirmations: 1, // Wait for 1 confirmation
   });
+
+  // Handle notification dismissal
+  const dismissNotification = () => {
+    setNotification(null);
+  };
+
+  // Auto-dismiss all notifications after 4 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   // Fetch player's all-time high score
   const { data: fetchedPlayerAllTimeHighScore, isLoading: isLoadingPlayerAllTimeHighScore, refetch: refetchPlayerAllTimeHighScore } = useReadContract({
@@ -190,12 +221,36 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   useEffect(() => {
     if (payFeeDataHash) {
       // Transaction has been submitted
+      setNotification({
+        id: 'pay-fee-success',
+        type: 'success',
+        message: 'Entry fee transaction submitted! Waiting for confirmation...',
+        title: 'Transaction Submitted',
+      });
       setScoreSubmissionMessage('Entry fee transaction sent! Waiting for confirmation...');
       setShowScoreSubmissionStatus(true);
       setIsConfirmingFee(true); // Indicate we are now waiting for confirmation
     }
     // Handling payFeeError here is important for immediate feedback if submission itself errored
     if (payFeeError && !payFeeDataHash) { // Ensure this only runs if submission itself errored
+      // Simplify error messages for users
+      let errorMessage = 'Transaction failed';
+      if (payFeeError.message.includes('User rejected')) {
+        errorMessage = 'Transaction cancelled by user';
+      } else if (payFeeError.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds';
+      } else if (payFeeError.message.includes('network')) {
+        errorMessage = 'Network error - please try again';
+      } else if (payFeeError.message.includes('getChainId')) {
+        errorMessage = 'Wallet connection issue - please refresh the page and reconnect';
+      }
+
+      setNotification({
+        id: 'pay-fee-error',
+        type: 'error',
+        message: errorMessage,
+        title: 'Payment Failed',
+      });
       setScoreSubmissionMessage(`Failed to pay entry fee: ${payFeeError.message.substring(0, 70)}...`);
       setShowScoreSubmissionStatus(true);
       setIsConfirmingFee(false); // No longer confirming
@@ -214,6 +269,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     }
 
     if (isFeeTxSuccess) { // This is true if select returned true (receipt.status === 'success')
+      setNotification({
+        id: 'pay-fee-confirmed',
+        type: 'success',
+        message: 'Entry fee confirmed! You can now submit your score.',
+        title: 'Payment Successful',
+      });
       setScoreSubmissionMessage('Entry fee confirmed! You can now submit your score.');
       setShowScoreSubmissionStatus(true);
       setIsConfirmingFee(false);
@@ -221,6 +282,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       resetPayFee(); // Reset the fee payment hook state as the transaction is processed
     } else if (!isFeeTxSuccess && !isLoadingFeeTxReceipt && payFeeDataHash) {
       // This condition means: not loading, not successful (could be reverted or select returned false), and there was a hash.
+      setNotification({
+        id: 'pay-fee-failed',
+        type: 'error',
+        message: 'Entry fee transaction failed or was reverted. Please try again.',
+        title: 'Payment Failed',
+      });
       setScoreSubmissionMessage('Entry fee transaction failed or was reverted. Please try again.');
       setShowScoreSubmissionStatus(true);
       setIsConfirmingFee(false);
@@ -245,6 +312,24 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       setIsAttemptingScoreSubmission(true); // Keep button disabled
     }
     if (submitScoreTxError && !submitScoreTxHash) {
+      // Simplify error messages for users
+      let errorMessage = 'Score submission failed';
+      if (submitScoreTxError.message.includes('User rejected')) {
+        errorMessage = 'Transaction cancelled by user';
+      } else if (submitScoreTxError.message.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds';
+      } else if (submitScoreTxError.message.includes('network')) {
+        errorMessage = 'Network error - please try again';
+      } else if (submitScoreTxError.message.includes('getChainId')) {
+        errorMessage = 'Wallet connection issue - please refresh the page and reconnect';
+      }
+
+      setNotification({
+        id: 'submit-score-error',
+        type: 'error',
+        message: errorMessage,
+        title: 'Score Submission Failed',
+      });
       setScoreSubmissionMessage(`Failed to submit score: ${submitScoreTxError.message.substring(0, 70)}...`);
       setShowScoreSubmissionStatus(true);
       setIsConfirmingScore(false);
@@ -282,6 +367,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     }
 
     if (isScoreTxSuccess) {
+      setNotification({
+        id: 'submit-score-success',
+        type: 'success',
+        message: isNewHighScore ? 'New High Score submitted successfully! 🎉' : 'Score submitted successfully! ✔️',
+        title: 'Score Submitted',
+      });
       setScoreSubmissionMessage(
         <span>
           {isNewHighScore ? 'New High Score submitted successfully! 🎉' : 'Score submitted successfully! ✔️'} (TX: <button
@@ -305,6 +396,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       // Don't reset the submit score transaction state to keep the UI showing submitted
     } else if (!isScoreTxSuccess && !isLoadingScoreTxReceipt && submitScoreTxHash) {
       // This condition implies the transaction was mined but failed (e.g., reverted)
+      setNotification({
+        id: 'submit-score-failed',
+        type: 'error',
+        message: 'Score submission transaction failed or was reverted. Please try again.',
+        title: 'Score Submission Failed',
+      });
       setScoreSubmissionMessage(`Score submission transaction failed or was reverted. Please try again. ❌ (TX: ${submitScoreTxHash.slice(0, 10)}...${submitScoreTxHash.slice(-8)})`);
       setShowScoreSubmissionStatus(true);
       setIsConfirmingScore(false);
@@ -362,28 +459,91 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
   const handlePayEntryFeeToSaveScore = async () => {
     if (!isConnected || !address) {
+      setNotification({
+        id: 'connect-wallet-error',
+        type: 'error',
+        message: 'Connect wallet first',
+        title: 'Wallet Required',
+      });
       setScoreSubmissionMessage('Please connect your wallet first.');
       setShowScoreSubmissionStatus(true);
       return;
     }
     if (chainId !== monadTestnet.id) {
       try {
+        setNotification({
+          id: 'switch-network-info',
+          type: 'info',
+          message: 'Switching to Monad Testnet...',
+          title: 'Network Switch',
+        });
         setScoreSubmissionMessage('Switching to Monad Testnet...');
         setShowScoreSubmissionStatus(true);
-        await switchChain?.({ chainId: monadTestnet.id });
+        
+        // Try to switch chain with error handling for getChainId issues
+        if (switchChain) {
+          await switchChain({ chainId: monadTestnet.id });
+        } else {
+          // Fallback: try to switch using window.ethereum directly
+          if (typeof window !== 'undefined' && window.ethereum) {
+            try {
+              await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: `0x${monadTestnet.id.toString(16)}` }],
+              });
+            } catch (switchError: any) {
+              // If the chain doesn't exist, add it
+              if (switchError.code === 4902) {
+                await window.ethereum.request({
+                  method: 'wallet_addEthereumChain',
+                  params: [{
+                    chainId: `0x${monadTestnet.id.toString(16)}`,
+                    chainName: 'Monad Testnet',
+                    nativeCurrency: {
+                      name: 'MON',
+                      symbol: 'MON',
+                      decimals: 18,
+                    },
+                    rpcUrls: ['https://testnet-rpc.monad.xyz'],
+                    blockExplorerUrls: ['https://testnet.monvision.io'],
+                  }],
+                });
+              }
+            }
+          }
+        }
+        
         await new Promise(resolve => setTimeout(resolve, 1500));
       } catch (e) {
+        setNotification({
+          id: 'switch-network-error',
+          type: 'error',
+          message: 'Switch to Monad Testnet manually',
+          title: 'Network Error',
+        });
         setScoreSubmissionMessage('Please switch to Monad Testnet in your wallet and try again.');
         setShowScoreSubmissionStatus(true);
         return;
       }
     }
     if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+      setNotification({
+        id: 'contract-address-error',
+        type: 'error',
+        message: 'Service temporarily unavailable',
+        title: 'System Error',
+      });
       setScoreSubmissionMessage('Leaderboard contract address is not set.');
       setShowScoreSubmissionStatus(true);
       return;
     }
     if (isLoadingEntryFee || !entryFeeAmount || entryFeeAmount === 0n) {
+      setNotification({
+        id: 'entry-fee-loading',
+        type: 'info',
+        message: 'Loading fee info...',
+        title: 'Please Wait',
+      });
       setScoreSubmissionMessage('Entry fee not loaded. Please wait.');
       setShowScoreSubmissionStatus(true);
       return;
@@ -888,11 +1048,23 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
   const submitPlayerScore = useCallback(async () => {
     if (hasSubmittedScore) {
+      setNotification({
+        id: 'already-submitted',
+        type: 'info',
+        message: 'Score already submitted for this game. Start a new game to submit again.',
+        title: 'Already Submitted',
+      });
       setScoreSubmissionMessage('Score already submitted for this game. Start a new game to submit again.');
       setShowScoreSubmissionStatus(true);
       return;
     }
     if (!isConnected || !address) {
+      setNotification({
+        id: 'connect-wallet-error',
+        type: 'error',
+        message: 'Connect wallet to submit score',
+        title: 'Wallet Required',
+      });
       setScoreSubmissionMessage('Connect wallet to submit score.');
       setShowScoreSubmissionStatus(true);
       return; // No need to set isAttemptingScoreSubmission false, as it wasn't set true yet
@@ -900,9 +1072,48 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     if (chainId !== monadTestnet.id) {
       // Attempt to switch chain first
       try {
+        setNotification({
+          id: 'switch-network-info',
+          type: 'info',
+          message: 'Switching to Monad Testnet to submit score...',
+          title: 'Network Switch',
+        });
         setScoreSubmissionMessage('Switching to Monad Testnet to submit score...');
         setShowScoreSubmissionStatus(true);
-        await switchChain?.({ chainId: monadTestnet.id });
+        
+        // Try to switch chain with error handling for getChainId issues
+        if (switchChain) {
+          await switchChain({ chainId: monadTestnet.id });
+        } else {
+          // Fallback: try to switch using window.ethereum directly
+          if (typeof window !== 'undefined' && window.ethereum) {
+            try {
+              await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: `0x${monadTestnet.id.toString(16)}` }],
+              });
+            } catch (switchError: any) {
+              // If the chain doesn't exist, add it
+              if (switchError.code === 4902) {
+                await window.ethereum.request({
+                  method: 'wallet_addEthereumChain',
+                  params: [{
+                    chainId: `0x${monadTestnet.id.toString(16)}`,
+                    chainName: 'Monad Testnet',
+                    nativeCurrency: {
+                      name: 'MON',
+                      symbol: 'MON',
+                      decimals: 18,
+                    },
+                    rpcUrls: ['https://testnet-rpc.monad.xyz'],
+                    blockExplorerUrls: ['https://testnet.monvision.io'],
+                  }],
+                });
+              }
+            }
+          }
+        }
+        
         // Add a small delay to allow wagmi state to update
         await new Promise(resolve => setTimeout(resolve, 1500));
         // Re-check chainId after switch attempt by checking wagmi's reactive state or window.ethereum if needed
@@ -913,6 +1124,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         // For now, if switch fails or user cancels, the message will persist.
         // If successful, the next interaction or gameOver useEffect should reflect the change.
       } catch (e) {
+        setNotification({
+          id: 'switch-network-error',
+          type: 'error',
+          message: 'Switch to Monad Testnet manually',
+          title: 'Network Error',
+        });
         setScoreSubmissionMessage('Failed to switch network. Please switch to Monad Testnet in your wallet and try again.');
         setShowScoreSubmissionStatus(true);
         return;
@@ -920,22 +1137,46 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       // After attempting switch, if still not on the correct chain, show message and return.
       // This check relies on the chainId from useAccount() being updated.
       if (chainId !== monadTestnet.id) { // Re-check after switch attempt
+        setNotification({
+          id: 'switch-network-error',
+          type: 'error',
+          message: 'Switch to Monad Testnet manually',
+          title: 'Network Error',
+        });
         setScoreSubmissionMessage('Please switch to Monad Testnet in your wallet and try again.');
         setShowScoreSubmissionStatus(true);
         return;
       }
     }
     if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
+      setNotification({
+        id: 'contract-address-error',
+        type: 'error',
+        message: 'Service temporarily unavailable',
+        title: 'System Error',
+      });
       setScoreSubmissionMessage('Leaderboard contract not configured.');
       setShowScoreSubmissionStatus(true);
       return;
     }
     if (!hasPaidForTodayForScoreSubmission) {
+      setNotification({
+        id: 'need-pass',
+        type: 'info',
+        message: 'Get daily pass to submit score',
+        title: 'Pass Required',
+      });
       setScoreSubmissionMessage('You need to get a daily pass to submit your score.');
       setShowScoreSubmissionStatus(true);
       return;
     }
     if (score <= 0) {
+      setNotification({
+        id: 'invalid-score',
+        type: 'error',
+        message: 'Score must be greater than 0',
+        title: 'Invalid Score',
+      });
       setScoreSubmissionMessage('Score must be greater than 0 to submit.');
       setShowScoreSubmissionStatus(true);
       return;
@@ -956,6 +1197,19 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         console.error('Switch chain function not available for score submission.');
       }
       return; // Prevent submission if not on Monad Testnet or if switch is initiated
+    }
+
+    // Additional validation for connector and connection state
+    if (!connector) {
+      setNotification({
+        id: 'connector-error',
+        type: 'error',
+        message: 'Wallet connector not available. Please reconnect your wallet.',
+        title: 'Connection Error',
+      });
+      setScoreSubmissionMessage('Wallet connector not available. Please reconnect your wallet.');
+      setShowScoreSubmissionStatus(true);
+      return;
     }
 
     // setIsAttemptingScoreSubmission(true); // This will be handled by useEffect watching submitScoreTxHash
@@ -1144,6 +1398,43 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         backgroundImage: 'radial-gradient(at 71% 88%, hsla(198,92%,67%,1) 0px, transparent 50%), radial-gradient(at 69% 34%, hsla(281,80%,71%,1) 0px, transparent 50%), radial-gradient(at 83% 89%, hsla(205,61%,69%,1) 0px, transparent 50%), radial-gradient(at 23% 14%, hsla(234,83%,62%,1) 0px, transparent 50%), radial-gradient(at 18% 20%, hsla(302,94%,70%,1) 0px, transparent 50%), radial-gradient(at 1% 45%, hsla(196,99%,70%,1) 0px, transparent 50%), radial-gradient(at 34% 18%, hsla(316,72%,67%,1) 0px, transparent 50%)',
       }}
     >
+      {/* Notification Component */}
+      {notification && (
+        <motion.div
+          className="fixed top-4 left-4 right-4 z-50 mx-auto max-w-sm"
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className={`p-3 rounded-lg shadow-lg border backdrop-blur-sm ${notification.type === 'success'
+            ? 'bg-green-600/95 border-green-400 text-white'
+            : notification.type === 'error'
+              ? 'bg-red-600/95 border-red-400 text-white'
+              : 'bg-blue-600/95 border-blue-400 text-white'
+            }`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {notification.type === 'success' && <CheckCircle className="w-4 h-4 flex-shrink-0" />}
+                {notification.type === 'error' && <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+                {notification.type === 'info' && <Info className="w-4 h-4 flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  {notification.title && (
+                    <h4 className="font-medium text-xs mb-0.5 truncate">{notification.title}</h4>
+                  )}
+                  <p className="text-xs leading-tight">{notification.message}</p>
+                </div>
+              </div>
+              <button
+                onClick={dismissNotification}
+                className="text-white/80 hover:text-white transition-colors flex-shrink-0 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
       {/* <BackgroundGradientAnimation 
         gradientBackgroundStart="rgb(25, 25, 36)" 
         gradientBackgroundEnd="rgb(15, 15, 25)"
@@ -1337,7 +1628,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                       onClick={() => switchChain && switchChain({ chainId: monadTestnet.id })}
                       className="w-3/4 py-3 text-lg bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out my-1 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Switch to Monad Testnet to Save Score
+                      Switch to Monad Testnet
                     </Button>
                   ) : ( // Wallet is connected and on the correct chain
                     isConnected && address && chainId === monadTestnet.id && ( // This inner check is now redundant due to outer checks but kept for safety / structure similarity

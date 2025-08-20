@@ -1,5 +1,12 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
+
+// Add type declaration for window.ethereum
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -8,7 +15,7 @@ import { BackgroundGradientAnimation } from '@/components/ui/BackgroundGradientA
 import { useAccount, useSwitchChain, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 import { monadTestnet } from 'viem/chains';
 import { parseEther, formatEther, createPublicClient, http } from 'viem';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { SECURE_LEADERBOARD_ABI } from '@/lib/leaderboard-abi';
 import { getSignedEntryFee, generateGameSession } from '@/lib/secure-score';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
@@ -25,6 +32,14 @@ interface LeaderboardEntry {
   avatar?: string;
   identity?: string;
   farcasterID?: number;
+}
+
+// Define notification type
+interface NotificationMessage {
+  id: string;
+  type: 'success' | 'error' | 'info';
+  message: string;
+  title?: string;
 }
 
 const LeaderboardPage: React.FC = () => {
@@ -44,8 +59,24 @@ const LeaderboardPage: React.FC = () => {
   const [entryFeeAmount, setEntryFeeAmount] = useState<bigint>(parseEther('0.01'));
   const [currentDay, setCurrentDay] = useState<bigint | null>(null);
   const [lastKnownDay, setLastKnownDay] = useState<bigint | null>(null);
+  const [notification, setNotification] = useState<NotificationMessage | null>(null);
   const publicClient = usePublicClient({ chainId: monadTestnet.id });
   // console.log('[LeaderboardPage] usePublicClient hook called. Initial publicClient (is it null/undefined?):', publicClient === null ? 'null' : publicClient === undefined ? 'undefined' : 'defined');
+
+  // Handle notification dismissal
+  const dismissNotification = () => {
+    setNotification(null);
+  };
+
+  // Auto-dismiss all notifications after 4 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
 
   // Helper function to get current day timestamp (client-side calculation)
   const getCurrentDayTimestamp = () => {
@@ -234,7 +265,7 @@ const LeaderboardPage: React.FC = () => {
         throw new Error('Contract not accessible: ' + verifyError);
       }
 
-      // Get daily participants list
+      // Get daily participants list - try the most reliable approach first
       console.log('[fetchLeaderboard] About to call getDailyParticipantsList with day:', currentDay, 'type:', typeof currentDay);
 
       // Ensure currentDay is properly formatted as a number for the contract call
@@ -242,86 +273,78 @@ const LeaderboardPage: React.FC = () => {
       console.log('[fetchLeaderboard] Calling with dayArg:', dayArg, 'type:', typeof dayArg);
 
       let dailyParticipants: `0x${string}`[];
+      
+      // Try the most reliable approach first (fresh client with no multicall)
       try {
-        dailyParticipants = await publicClient.readContract({
+        console.log('[fetchLeaderboard] Trying with fresh client instance first...');
+        const freshClient = createPublicClient({
+          chain: monadTestnet,
+          transport: http(),
+          batch: {
+            multicall: false,
+          },
+        });
+
+        dailyParticipants = await freshClient.readContract({
           ...contract,
           functionName: 'getDailyParticipantsList',
           args: [dayArg],
         }) as `0x${string}`[];
-        console.log('[fetchLeaderboard] getDailyParticipantsList returned:', dailyParticipants);
-      } catch (error) {
-        console.error('[fetchLeaderboard] getDailyParticipantsList failed:', error);
-        // With 453 participants, this might be a gas/RPC limit issue
-        // Let's try alternative approaches for large arrays
+        console.log('[fetchLeaderboard] Fresh client successful, got:', dailyParticipants?.length, 'participants');
+      } catch (freshClientError) {
+        console.warn('[fetchLeaderboard] Fresh client approach failed:', freshClientError);
+        
+        // Fallback to original publicClient
         try {
-          console.log('[fetchLeaderboard] Trying with higher gas limit for large array (453 participants)...');
+          console.log('[fetchLeaderboard] Trying with original publicClient...');
           dailyParticipants = await publicClient.readContract({
             ...contract,
             functionName: 'getDailyParticipantsList',
             args: [dayArg],
           }) as `0x${string}`[];
-          console.log('[fetchLeaderboard] Large array call successful, got:', dailyParticipants?.length, 'participants');
-        } catch (gasError) {
-          console.error('[fetchLeaderboard] Gas limit approach failed:', gasError);
-          // Try with a fresh client instance
+          console.log('[fetchLeaderboard] Original publicClient successful, got:', dailyParticipants?.length, 'participants');
+        } catch (originalError) {
+          console.warn('[fetchLeaderboard] Original publicClient approach failed:', originalError);
+          
+          // Final fallback using events
           try {
-            console.log('[fetchLeaderboard] Trying with fresh client instance...');
-            const freshClient = createPublicClient({
-              chain: monadTestnet,
-              transport: http(),
-              batch: {
-                multicall: false,
+            console.log('[fetchLeaderboard] Trying alternative approach using EntryFeePaid events...');
+
+            // Get EntryFeePaid events for today to reconstruct participant list
+            const logs = await publicClient.getLogs({
+              address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
+              event: {
+                type: 'event',
+                name: 'EntryFeePaid',
+                inputs: [
+                  { name: 'player', type: 'address', indexed: true },
+                  { name: 'amount', type: 'uint256', indexed: false },
+                  { name: 'day', type: 'uint256', indexed: false }
+                ]
               },
+              fromBlock: 'earliest',
+              toBlock: 'latest'
             });
 
-            dailyParticipants = await freshClient.readContract({
-              ...contract,
-              functionName: 'getDailyParticipantsList',
-              args: [dayArg],
-            }) as `0x${string}`[];
-            console.log('[fetchLeaderboard] Fresh client successful, got:', dailyParticipants?.length, 'participants');
-          } catch (finalError) {
-            console.error('[fetchLeaderboard] All approaches failed. Large array RPC limitation:', finalError);
-            // Try alternative approach using events
-            try {
-              console.log('[fetchLeaderboard] Trying alternative approach using EntryFeePaid events...');
+            console.log('[fetchLeaderboard] Found', logs.length, 'EntryFeePaid events for today');
 
-              // Get EntryFeePaid events for today to reconstruct participant list
-              const logs = await publicClient.getLogs({
-                address: LEADERBOARD_CONTRACT_ADDRESS as `0x${string}`,
-                event: {
-                  type: 'event',
-                  name: 'EntryFeePaid',
-                  inputs: [
-                    { name: 'player', type: 'address', indexed: true },
-                    { name: 'amount', type: 'uint256', indexed: false },
-                    { name: 'day', type: 'uint256', indexed: false }
-                  ]
-                },
-                fromBlock: 'earliest',
-                toBlock: 'latest'
-              });
+            // Extract unique participant addresses
+            const participantSet = new Set<string>();
+            logs.forEach((log: any) => {
+              if (log.args?.player) {
+                participantSet.add(log.args.player);
+              }
+            });
 
-              console.log('[fetchLeaderboard] Found', logs.length, 'EntryFeePaid events for today');
+            dailyParticipants = Array.from(participantSet) as `0x${string}`[];
+            console.log('[fetchLeaderboard] Event-based approach successful, got:', dailyParticipants.length, 'unique participants');
 
-              // Extract unique participant addresses
-              const participantSet = new Set<string>();
-              logs.forEach((log: any) => {
-                if (log.args?.player) {
-                  participantSet.add(log.args.player);
-                }
-              });
-
-              dailyParticipants = Array.from(participantSet) as `0x${string}`[];
-              console.log('[fetchLeaderboard] Event-based approach successful, got:', dailyParticipants.length, 'unique participants');
-
-            } catch (eventError) {
-              console.error('[fetchLeaderboard] Event-based approach also failed:', eventError);
-              // Final fallback - show error message
-              setLeaderboardData([]);
-              console.log('[fetchLeaderboard] All methods failed. Unable to load leaderboard.');
-              return;
-            }
+          } catch (eventError) {
+            console.error('[fetchLeaderboard] All approaches failed:', eventError);
+            // Final fallback - show error message
+            setLeaderboardData([]);
+            console.log('[fetchLeaderboard] All methods failed. Unable to load leaderboard.');
+            return;
           }
         }
       }
@@ -337,7 +360,7 @@ const LeaderboardPage: React.FC = () => {
       console.log('[fetchLeaderboard] Getting scores and farcaster data for', dailyParticipants.length, 'participants');
 
       // Process in batches to avoid overwhelming the RPC
-      const batchSize = 50;
+      const batchSize = 200;
       const playerData: { player: string; score: bigint; farcasterID: number; username: string }[] = [];
 
       for (let i = 0; i < dailyParticipants.length; i += batchSize) {
@@ -580,22 +603,74 @@ const LeaderboardPage: React.FC = () => {
   const handlePayEntryFee = async () => {
     try {
       if (!isConnected || !address) {
-        alert('Please connect your wallet.');
+        setNotification({
+          id: 'connect-wallet-error',
+          type: 'error',
+          message: 'Connect wallet first',
+          title: 'Wallet Required',
+        });
         return;
       }
       if (chainId !== monadTestnet.id) {
-        alert('WRONG NETWORK: Please switch to Monad Testnet to pay the entry fee.');
-        switchChain?.({ chainId: monadTestnet.id });
+        setNotification({
+          id: 'switch-network-error',
+          type: 'error',
+          message: 'Switch to Monad Testnet',
+          title: 'Wrong Network',
+        });
+        
+        // Try to switch chain with error handling for getChainId issues
+        if (switchChain) {
+          switchChain({ chainId: monadTestnet.id });
+        } else {
+          // Fallback: try to switch using window.ethereum directly
+          if (typeof window !== 'undefined' && window.ethereum) {
+            try {
+              window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: `0x${monadTestnet.id.toString(16)}` }],
+              });
+            } catch (switchError: any) {
+              // If the chain doesn't exist, add it
+              if (switchError.code === 4902) {
+                window.ethereum.request({
+                  method: 'wallet_addEthereumChain',
+                  params: [{
+                    chainId: `0x${monadTestnet.id.toString(16)}`,
+                    chainName: 'Monad Testnet',
+                    nativeCurrency: {
+                      name: 'MON',
+                      symbol: 'MON',
+                      decimals: 18,
+                    },
+                    rpcUrls: ['https://testnet-rpc.monad.xyz'],
+                    blockExplorerUrls: ['https://testnet.monvision.io'],
+                  }],
+                });
+              }
+            }
+          }
+        }
         return;
       }
       if ((LEADERBOARD_CONTRACT_ADDRESS as string) === '0xYOUR_CONTRACT_ADDRESS_HERE') {
-        alert('Leaderboard contract address is not set. Please inform the developer.');
+        setNotification({
+          id: 'contract-address-error',
+          type: 'error',
+          message: 'Service temporarily unavailable',
+          title: 'System Error',
+        });
         return;
       }
 
       // Secondary chain check before writing to contract
       if (chainId !== monadTestnet.id) {
-        alert('CRITICAL: Transaction halted. You are not on the Monad Testnet. Please switch and try again.');
+        setNotification({
+          id: 'network-error',
+          type: 'error',
+          message: 'Switch to Monad Testnet and try again',
+          title: 'Network Error',
+        });
         return;
       }
 
@@ -646,18 +721,48 @@ const LeaderboardPage: React.FC = () => {
       console.log('writeContract called successfully');
     } catch (error) {
       console.error('Error in handlePayEntryFee:', error);
-      alert(`Error paying entry fee: ${error instanceof Error ? error.message : String(error)}`);
+      // Simplify error messages for users
+      let errorMessage = 'Transaction failed';
+      if (error instanceof Error) {
+        if (error.message.includes('User rejected')) {
+          errorMessage = 'Transaction cancelled by user';
+        } else if (error.message.includes('insufficient funds')) {
+          errorMessage = 'Insufficient funds';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error - please try again';
+        } else if (error.message.includes('getChainId')) {
+          errorMessage = 'Wallet connection issue - please refresh the page and reconnect';
+        }
+      }
+
+      setNotification({
+        id: 'pay-fee-error',
+        type: 'error',
+        message: errorMessage,
+        title: 'Payment Failed',
+      });
     }
   };
 
+  // Effect to handle transaction submission
   useEffect(() => {
     if (writeData) { // Transaction sent
-      alert('Entry fee transaction submitted! Waiting for confirmation.');
-      // Optionally, you can use useWaitForTransactionReceipt here for better UX
+      setNotification({
+        id: 'pay-fee-success',
+        type: 'success',
+        message: 'Entry fee transaction submitted! Waiting for confirmation...',
+        title: 'Transaction Submitted',
+      });
+      // After confirmation, refetch payment status
+      const checkConfirmation = async () => {
+        // Simple timeout based refetch, ideally use useWaitForTransactionReceipt
+        setTimeout(() => {
+          // refetchHasPaid();
+          // refetchPrizePool();
+        }, 7000); // Check after 7s
+      };
+      checkConfirmation();
     }
-    // After confirmation (or if writeContract hook provides success status directly)
-    // refetchHasPaid();
-    // refetchPrizePool();
   }, [writeData]);
 
   // Countdown to 00:00 UTC and frequent day change detection
@@ -691,6 +796,44 @@ const LeaderboardPage: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-4 relative pb-24">
+      {/* Notification Component */}
+      {notification && (
+        <motion.div
+          className="fixed top-4 left-4 right-4 z-50 mx-auto max-w-sm"
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className={`p-3 rounded-lg shadow-lg border backdrop-blur-sm ${notification.type === 'success'
+            ? 'bg-green-600/95 border-green-400 text-white'
+            : notification.type === 'error'
+              ? 'bg-red-600/95 border-red-400 text-white'
+              : 'bg-blue-600/95 border-blue-400 text-white'
+            }`}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {notification.type === 'success' && <CheckCircle className="w-4 h-4 flex-shrink-0" />}
+                {notification.type === 'error' && <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+                {notification.type === 'info' && <Info className="w-4 h-4 flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  {notification.title && (
+                    <h4 className="font-medium text-xs mb-0.5 truncate">{notification.title}</h4>
+                  )}
+                  <p className="text-xs leading-tight">{notification.message}</p>
+                </div>
+              </div>
+              <button
+                onClick={dismissNotification}
+                className="text-white/80 hover:text-white transition-colors flex-shrink-0 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       <BackgroundGradientAnimation
         gradientBackgroundStart="rgb(25, 25, 36)"
         gradientBackgroundEnd="rgb(15, 15, 25)"
