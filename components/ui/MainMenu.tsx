@@ -427,9 +427,19 @@ const MainMenu: React.FC = () => {
     sdk.actions.ready({ disableNativeGestures: true });
     // No need for cleanup since we want gestures disabled consistently
 
-    // Automatically add frame on load
+    // Check if miniapp is already added before attempting to add it
     const addFrameOnLoad = async () => {
       try {
+        // Get the context to check if miniapp is already added
+        const context = await sdk.context;
+        
+        // Check if the miniapp is already added using context.client.added
+        if (context?.client?.added) {
+          console.log("MiniApp is already added to the client");
+          return;
+        }
+        
+        // Only add the miniapp if it's not already added
         await sdk.actions.addMiniApp();
       } catch (error: any) {
         if (error && error.message && error.message.includes("Cannot read properties of undefined (reading 'result')")) {
