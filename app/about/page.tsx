@@ -13,7 +13,8 @@ import { sdk } from '@farcaster/miniapp-sdk';
 // Wagmi and Viem imports for donation
 import { useAccount, useSendTransaction, useSwitchChain } from 'wagmi';
 import { parseEther } from 'viem';
-import { monadTestnet } from 'viem/chains'; // Assuming monadTestnet is correctly set up
+import { monadTestnet } from 'wagmi/chains'
+//import { monadTestnet } from 'viem/chains'; // Assuming monadTestnet is correctly set up
 
 // Define your social links here - replace with your actual URLs and handles
 const socialLinks = [

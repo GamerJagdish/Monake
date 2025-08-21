@@ -20,7 +20,8 @@ import { SiFarcaster } from 'react-icons/si';
 import { useReadContract, useWriteContract } from 'wagmi'; // Added for contract interaction
 import { parseEther, formatEther } from 'viem'; // Added for ETH formatting
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
-import { monadTestnet } from "viem/chains";
+import { monadTestnet } from 'wagmi/chains'
+//import { monadTestnet } from "viem/chains";
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
 import { sdk } from '@farcaster/miniapp-sdk';
 import { SECURE_LEADERBOARD_ABI } from '@/lib/leaderboard-abi';

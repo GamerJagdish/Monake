@@ -10,7 +10,8 @@ declare global {
 import Image from 'next/image'; // Added for game over image
 // Wagmi imports for leaderboard interaction
 import { useAccount, useSwitchChain, useReadContract, useWriteContract, useWaitForTransactionReceipt, useConnect, useDisconnect } from 'wagmi';
-import { monadTestnet } from "viem/chains";
+//import { monadTestnet } from "viem/chains";
+import { monadTestnet } from 'wagmi/chains'
 import { parseEther, formatEther } from 'viem';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";

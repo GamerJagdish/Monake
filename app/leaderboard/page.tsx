@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { BackgroundGradientAnimation } from '@/components/ui/BackgroundGradientAnimation';
 import { useAccount, useSwitchChain, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
-import { monadTestnet } from 'viem/chains';
+//import { monadTestnet } from 'viem/chains';
+import { monadTestnet } from 'wagmi/chains'
 import { parseEther, formatEther, createPublicClient, http } from 'viem';
 import { ArrowLeft, X, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { SECURE_LEADERBOARD_ABI } from '@/lib/leaderboard-abi';
