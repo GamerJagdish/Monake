@@ -31,9 +31,6 @@ export async function GET() {
       ogDescription: "Play Monake, the best snake game on Monad!", 
       ogImageUrl: `${APP_URL}/images/og.png`, 
     },
-    baseBuilder: {
-      allowedAddresses: "0xa7c71d3D864E4dCC092d428E381d611413D7911b"
-    },
   };
 
   return NextResponse.json(farcasterConfig);
