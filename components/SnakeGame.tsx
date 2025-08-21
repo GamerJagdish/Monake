@@ -1636,13 +1636,13 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
                       hasPaidForTodayForScoreSubmission ? (
                         isScoreTxSuccess || hasSubmittedScore ? (
-                          <div className="text-center w-3/4 my-1">
-                            <p className="text-green-400 font-semibold text-base py-1">Submitted!!</p>
+                          <div>
+                            {/* <p className="text-green-400 font-semibold text-base py-1">Submitted!!</p>
                             {submitScoreTxHash && (
                               <p className="text-sm text-green-300">
                                 TX: {submitScoreTxHash.slice(0, 10)}...{submitScoreTxHash.slice(-8)}
                               </p>
-                            )}
+                            )} */}
                           </div>
                         ) : (
                           <Button
