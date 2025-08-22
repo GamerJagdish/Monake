@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useMotionValue, motion, animate, AnimatePresence } from "motion/react"; // Updated import, added AnimatePresence
 // import { BackgroundGradientAnimation } from "@/components/ui/BackgroundGradientAnimation";
-import { Volume2, VolumeX, X, CheckCircle, AlertCircle, Info } from 'lucide-react'; // Added notification icons
+import { Volume2, VolumeX, X, CheckCircle, AlertCircle, Info, Pause, Play } from 'lucide-react'; // Added Pause and Play icons
 import { sdk } from '@farcaster/miniapp-sdk';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context"; // Added import
 import { APP_URL } from "@/lib/constants"; // Added import
@@ -128,6 +128,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const [playerAllTimeHighScore, setPlayerAllTimeHighScore] = useState<bigint | null>(null);
   const [isNewHighScore, setIsNewHighScore] = useState<boolean>(false);
   const [notification, setNotification] = useState<NotificationMessage | null>(null);
+  const [isPaused, setIsPaused] = useState(false); // Add pause state
+  const isPausedRef = useRef(false); // Add ref for performance
 
   // Hook to wait for the transaction receipt for fee payment
   const { data: feeTxReceipt, isLoading: isLoadingFeeTxReceipt, isSuccess: isFeeTxSuccess } = useWaitForTransactionReceipt({
@@ -632,6 +634,10 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     isGameStartingRef.current = isGameStarting;
   }, [isGameStarting]);
 
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
   // Visual snake not needed with original rendering approach
   useEffect(() => {
     setVisualSnake([...snake]);
@@ -821,8 +827,18 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       // Early return if game is not active - using refs for better performance
       if (gameOverRef.current || isGameStartingRef.current) return;
 
-      // Only handle arrow keys - early return for performance
-      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      // Handle pause key (Spacebar)
+      if (event.key === ' ' || event.key === 'Spacebar') {
+        event.preventDefault();
+        setIsPaused(prev => !prev);
+        return;
+      }
+
+      // Don't handle movement keys if game is paused
+      if (isPausedRef.current) return;
+
+      // Only handle arrow keys and WASD - early return for performance
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(event.key)) {
         return;
       }
 
@@ -838,21 +854,29 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       // Direct direction assignment without intermediate variable
       switch (event.key) {
         case 'ArrowUp':
+        case 'w':
+        case 'W':
           if (latestDir.y === 0) {
             directionQueueRef.current.push({ x: 0, y: -1 });
           }
           break;
         case 'ArrowDown':
+        case 's':
+        case 'S':
           if (latestDir.y === 0) {
             directionQueueRef.current.push({ x: 0, y: 1 });
           }
           break;
         case 'ArrowLeft':
+        case 'a':
+        case 'A':
           if (latestDir.x === 0) {
             directionQueueRef.current.push({ x: -1, y: 0 });
           }
           break;
         case 'ArrowRight':
+        case 'd':
+        case 'D':
           if (latestDir.x === 0) {
             directionQueueRef.current.push({ x: 1, y: 0 });
           }
@@ -875,7 +899,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const lastKeyPressTime = useRef<number>(0);
   const handleVirtualKeyPress = useCallback((direction: { x: number; y: number }) => {
     // Using refs for better performance
-    if (gameOverRef.current || isGameStartingRef.current) return;
+    if (gameOverRef.current || isGameStartingRef.current || isPausedRef.current) return;
 
     // Throttle key input to prevent too many direction changes
     const now = Date.now();
@@ -903,7 +927,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const superFoodTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (gameOver || isGameStarting) {
+    if (gameOver || isGameStarting || isPaused) {
       if (gameLoopRef.current) {
         clearInterval(gameLoopRef.current);
         gameLoopRef.current = null;
@@ -1007,7 +1031,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         superFoodTimeoutRef.current = null;
       }
     };
-  }, [gameOver, isGameStarting, playSound, spawnNewFood, trySpawnSuperFood]); // Reduced dependencies
+  }, [gameOver, isGameStarting, isPaused, playSound, spawnNewFood, trySpawnSuperFood]); // Added isPaused to dependencies
 
   // Game over sound is now played directly when gameOver is set within the game loop.
 
@@ -1379,6 +1403,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     directionQueueRef.current = [];
     setGameOver(false);
     setScore(0);
+    setIsPaused(false); // Reset pause state
 
     // Reset score submission states
     setScoreSubmissionMessage('');
@@ -1436,14 +1461,6 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
           </div>
         </motion.div>
       )}
-      {/* <BackgroundGradientAnimation 
-        gradientBackgroundStart="rgb(25, 25, 36)" 
-        gradientBackgroundEnd="rgb(15, 15, 25)"
-        firstColor="18, 113, 255"
-        secondColor="221, 74, 255"
-        thirdColor="100, 220, 255"
-        fourthColor="200, 50, 50"
-      /> */}
 
       <Card className="w-full max-w-sm bg-gray-800/80 border-gray-700 shadow-xl backdrop-blur-sm z-10">
         <CardHeader className="pt-3 pb-1 relative">
@@ -1462,7 +1479,24 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                 {animatedScore.get()} {/* Display the score value */}
               </motion.div>
             </div>
-            <div className="flex-initial ml-auto"> {/* Button on the right */}
+            <div className="flex-initial ml-auto flex gap-2"> {/* Buttons on the right */}
+              {/* Pause/Resume Button - Only show when game is active */}
+              {!gameOver && !isGameStarting && (
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <Button
+                    onClick={() => setIsPaused(!isPaused)}
+                    variant="outline"
+                    size="icon"
+                    className="p-2 h-auto bg-gray-800/50 hover:bg-gray-50/80 border-gray-700 text-slate-200 rounded-full"
+                    aria-label={isPaused ? "Resume" : "Pause"}
+                  >
+                    {isPaused ? <Play size={20} /> : <Pause size={20} />}
+                  </Button>
+                </motion.div>
+              )}
               <motion.div
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -1507,6 +1541,18 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                 <p className="text-6xl font-bold text-white animate-ping" style={{ animationDuration: '1s' }}>{countdownValue}</p>
               </div>
             )}
+
+            {/* Pause Overlay */}
+            {isPaused && !gameOver && !isGameStarting && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 rounded-md z-20">
+                <div className="text-center">
+                  <Pause className="w-16 h-16 text-white mx-auto mb-4" />
+                  <p className="text-2xl font-bold text-white mb-2">Game Paused</p>
+                  <p className="text-sm text-gray-300">Press Spacebar or click Resume to continue</p>
+                </div>
+              </div>
+            )}
+
             {/* Snake rendering - Back to original smooth approach */}
             {snake.map((segment, index) => {
               const isHead = index === 0;
@@ -1794,18 +1840,21 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         </CardContent>
 
         <CardFooter className="flex flex-col items-center pt-1 pb-3 space-y-2">
-          {showVirtualKeys && !gameOver && (
+          {showVirtualKeys && !gameOver && !isPaused && (
             <div className="flex justify-center">
               <VirtualArrowKeys
                 onDirectionPress={handleVirtualKeyPress}
-                disabled={gameOver || isGameStarting}
+                disabled={gameOver || isGameStarting || isPaused}
                 className={`transition-opacity duration-200 ${isGameStarting ? 'opacity-50' : 'opacity-90'}`}
               />
             </div>
           )}
-          <p className="text-xs text-gray-400">
-            {showVirtualKeys ? "Use virtual keys or keyboard arrows to move" : "Use keyboard arrow keys to move"}
-          </p>
+                                           {/* Only show text on desktop devices */}
+                      {!showVirtualKeys && (
+                        <p className="text-xs text-gray-400 text-center">
+                          Use WASD/Arrow Keys to move<br />Space to Pause/Resume
+                        </p>
+                      )}
         </CardFooter>
 
       </Card>

@@ -412,10 +412,10 @@ const LeaderboardPage: React.FC = () => {
 
       console.log('[fetchLeaderboard] Got scores and farcaster data for all participants:', playerData.length);
 
-      // Sort playerData by score in descending order and limit to top 50
+      // Sort playerData by score in descending order and limit to top 25
       const sortedPlayerData = [...playerData]
         .sort((a, b) => Number(b.score) - Number(a.score))
-        .slice(0, 50);
+        .slice(0, 25);
 
       // Initial leaderboard with wallet addresses and farcaster IDs
       const initialLeaderboard: LeaderboardEntry[] = sortedPlayerData
@@ -563,7 +563,7 @@ const LeaderboardPage: React.FC = () => {
       } else {
         console.log('[LeaderboardPage] Interval: Conditions NOT met for fetchLeaderboard.');
       }
-    }, 300000); // Refresh every 5 minutes
+    }, 600000); // Refresh every 10 minutes
     return () => {
       console.log('[LeaderboardPage] Clearing interval fetch.');
       clearInterval(interval);
@@ -875,9 +875,9 @@ const LeaderboardPage: React.FC = () => {
           </div>
 
           <div className="w-full mt-6">
-            <h3 className="text-2xl font-semibold text-center mb-4 text-slate-100">Top 50 Snakes</h3>
+            <h3 className="text-2xl font-semibold text-center mb-4 text-slate-100">Top 25 Snakes</h3>
             {isLoadingData ? (
-              <p className="text-center text-slate-400">Loading leaderboard...</p>
+              <p className="text-center text-slate-400">Loading Top Snakes🐍...</p>
             ) : leaderboardData.length > 0 ? (
               <ul className="space-y-3">
                 {leaderboardData.map((entry) => {

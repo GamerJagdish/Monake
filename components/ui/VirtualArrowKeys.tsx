@@ -43,10 +43,7 @@ const VirtualArrowKeys: React.FC<VirtualArrowKeysProps> = ({
         <button
           className={activeKey === 'up' ? activeKeyStyle : keyStyle}
           onMouseDown={() => handleMouseDown({ x: 0, y: -1 }, 'up')}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleTouchStart({ x: 0, y: -1 }, 'up');
-          }}
+          onTouchStart={() => handleTouchStart({ x: 0, y: -1 }, 'up')}
           disabled={disabled}
           aria-label="Move Up"
         >
@@ -59,10 +56,7 @@ const VirtualArrowKeys: React.FC<VirtualArrowKeysProps> = ({
         <button
           className={activeKey === 'left' ? activeKeyStyle : keyStyle}
           onMouseDown={() => handleMouseDown({ x: -1, y: 0 }, 'left')}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleTouchStart({ x: -1, y: 0 }, 'left');
-          }}
+          onTouchStart={() => handleTouchStart({ x: -1, y: 0 }, 'left')}
           disabled={disabled}
           aria-label="Move Left"
         >
@@ -71,10 +65,7 @@ const VirtualArrowKeys: React.FC<VirtualArrowKeysProps> = ({
         <button
           className={activeKey === 'down' ? activeKeyStyle : keyStyle}
           onMouseDown={() => handleMouseDown({ x: 0, y: 1 }, 'down')}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleTouchStart({ x: 0, y: 1 }, 'down');
-          }}
+          onTouchStart={() => handleTouchStart({ x: 0, y: 1 }, 'down')}
           disabled={disabled}
           aria-label="Move Down"
         >
@@ -83,10 +74,7 @@ const VirtualArrowKeys: React.FC<VirtualArrowKeysProps> = ({
         <button
           className={activeKey === 'right' ? activeKeyStyle : keyStyle}
           onMouseDown={() => handleMouseDown({ x: 1, y: 0 }, 'right')}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleTouchStart({ x: 1, y: 0 }, 'right');
-          }}
+          onTouchStart={() => handleTouchStart({ x: 1, y: 0 }, 'right')}
           disabled={disabled}
           aria-label="Move Right"
         >
