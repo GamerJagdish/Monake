@@ -1521,7 +1521,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
           {/* Game Grid Container */}
           <div
-            className="border border-gray-600 shadow-inner bg-gray-800 overflow-hidden"
+            className="border border-gray-600 shadow-inner bg-gray-800 rounded-xl overflow-hidden"
             style={{
               width: GRID_WIDTH * CELL_SIZE,
               height: GRID_HEIGHT * CELL_SIZE,
@@ -1661,9 +1661,10 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             )}
             {/* Game Over Modal */}
             {gameOver && (
-              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 rounded-lg">
+              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20">
                 <Image src="/images/ded-snake-lol.png" alt="Game Over Snake" width={200} height={200} style={{ width: '70%', height: 'auto' }} className="mb-3" priority />
                 <p className="text-5xl font-bold text-red-500 mb-2 animate-pulse">Game Over</p>
+                
                 <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
 
                 {/* Score Submission / Payment Button Logic */}
@@ -1856,8 +1857,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
           )}
                                            {/* Only show text on desktop devices */}
                       {!showVirtualKeys && (
-                        <p className="text-xs text-gray-400 text-center">
-                          Use WASD/Arrow Keys to move<br />Space to Pause/Resume
+                        <p className="text-[11px] text-gray-400 text-center">
+                          Use WASD/Arrow Keys to move, Space to Pause/Resume
                         </p>
                       )}
         </CardFooter>
