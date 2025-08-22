@@ -1468,7 +1468,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             <div className="flex-initial "> {/* Title on the left */}
               <CardTitle className="text-2xl font-bold monake-title">Monake</CardTitle>
             </div>
-            <div className="flex-initial mx-auto"> {/* Score in the middle */}
+            <div className="flex-grow text-center"> {/* Score in the middle */}
               <motion.div
                 className="text-2xl font-bold text-yellow-400 tabular-nums" // Changed to yellow and kept tabular-nums
                 key={score} // Add key to trigger re-render and animation on score change
@@ -1479,9 +1479,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                 {animatedScore.get()} {/* Display the score value */}
               </motion.div>
             </div>
-            <div className="flex-initial ml-auto flex gap-2"> {/* Buttons on the right */}
-              {/* Pause/Resume Button - Only show when game is active */}
-              {!gameOver && !isGameStarting && (
+            <div className="flex-initial flex gap-2"> {/* Buttons on the right */}
+              {/* Pause/Resume Button*/}
+              
                 <motion.div
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
@@ -1496,7 +1496,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                     {isPaused ? <Play size={20} /> : <Pause size={20} />}
                   </Button>
                 </motion.div>
-              )}
+              
               <motion.div
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -1548,7 +1548,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                 <div className="text-center">
                   <Pause className="w-16 h-16 text-white mx-auto mb-4" />
                   <p className="text-2xl font-bold text-white mb-2">Game Paused</p>
+                  {!showVirtualKeys && (
                   <p className="text-sm text-gray-300">Press Spacebar or click Resume to continue</p>
+                  )}
+                  {showVirtualKeys && (
+                  <p className="text-sm text-gray-300">Click Resume to continue</p>
+                  )}
                 </div>
               </div>
             )}
@@ -1840,7 +1845,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         </CardContent>
 
         <CardFooter className="flex flex-col items-center pt-1 pb-3 space-y-2">
-          {showVirtualKeys && !gameOver && !isPaused && (
+          {showVirtualKeys && !gameOver && (
             <div className="flex justify-center">
               <VirtualArrowKeys
                 onDirectionPress={handleVirtualKeyPress}
