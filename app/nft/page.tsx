@@ -306,7 +306,7 @@ const NFTPage: React.FC = () => {
 
   const handleShareNFT = async () => {
     try {
-      const shareText = `🎨 Just minted a Monake NFT! Join the fun and mint your own free NFT on Monad Testnet! 🐍`;
+      const shareText = `🎨 Just minted a Monake OG NFT! Join the fun and mint your own free NFT on Monad Testnet! 🐍`;
       const shareUrl = 'https://monake.vercel.app/nft';
       
       await sdk.actions.composeCast({

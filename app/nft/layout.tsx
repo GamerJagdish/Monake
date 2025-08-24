@@ -10,8 +10,8 @@ export const metadata: Metadata = {
     url: 'https://monake.vercel.app/nft',
   },
   other: {
-    'fc:miniapp': '{"version":"1","imageUrl":"https://monake.vercel.app/images/monake-og-feed.png","button":{"title":"Mint NFT","action":{"type":"launch_miniapp","name":"Monake","url":"https://monake.vercel.app/nft","splashImageUrl":"https://monake.vercel.app/images/splash.png","splashBackgroundColor":"#6e4bed"}}}',
-    'fc:frame': '{"version":"1","imageUrl":"https://monake.vercel.app/images/monake-og-feed.png","button":{"title":"Mint NFT","action":{"type":"launch_frame","name":"Monake","url":"https://monake.vercel.app/nft","splashImageUrl":"https://monake.vercel.app/images/splash.png","splashBackgroundColor":"#6e4bed"}}}',
+    'fc:miniapp': '{"version":"1","imageUrl":"https://monake.vercel.app/images/monake-og-feed.png","button":{"title":"Mint OG NFT","action":{"type":"launch_miniapp","name":"Monake","url":"https://monake.vercel.app/nft","splashImageUrl":"https://monake.vercel.app/images/splash.png","splashBackgroundColor":"#6e4bed"}}}',
+    'fc:frame': '{"version":"1","imageUrl":"https://monake.vercel.app/images/monake-og-feed.png","button":{"title":"Mint OG NFT","action":{"type":"launch_frame","name":"Monake","url":"https://monake.vercel.app/nft","splashImageUrl":"https://monake.vercel.app/images/splash.png","splashBackgroundColor":"#6e4bed"}}}',
   },
 };
 
