@@ -1829,6 +1829,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                         embeds: [APP_URL],
                       });
                     } catch (error) {
+                      setNotification({
+                        id: 'error-sharing-score',
+                        type: 'error',
+                        message: 'Error sharing score for some reason',
+                        title: 'Error sharing score',
+                      });
                       console.error('Error sharing score:', error);
                       // You could add a toast notification here if you have one
                     }

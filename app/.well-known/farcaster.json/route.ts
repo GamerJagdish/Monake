@@ -23,7 +23,7 @@ export async function GET() {
       primaryCategory: "games",
       buttonTitle: "Launch game",
       splashImageUrl: `${APP_URL}/images/splash.png`,
-      splashBackgroundColor: "#836EF9",
+      splashBackgroundColor: "#6e4bed",
       webhookUrl: `${APP_URL}/api/webhook`,
       heroImageUrl: `${APP_URL}/images/og.png`, 
       tagline: "Win MON Daily!", 

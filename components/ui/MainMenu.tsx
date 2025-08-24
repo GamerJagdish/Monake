@@ -470,10 +470,15 @@ const MainMenu: React.FC = () => {
     router.push('/leaderboard');
   };
 
+  const handleNFTClick = () => {
+    router.push('/nft');
+  };
+
   useEffect(() => {
     if (router) { // You can add a check to be safe
       router.prefetch('/about');
       router.prefetch('/leaderboard'); // Prefetch leaderboard page
+      router.prefetch('/nft'); // Prefetch NFT page
     }
   }, [router]);
   if (showSnakeGame) {
@@ -778,7 +783,7 @@ const MainMenu: React.FC = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handlePlayClick}
-                className="w-full py-3 text-lg sm:text-xl bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+                className="w-full py-3 text-xl sm:text-xl bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
               >
                 Play Game
               </motion.button>
@@ -786,16 +791,25 @@ const MainMenu: React.FC = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleLeaderboardClick} // Use the new handler
-                className="w-full py-3 text-lg sm:text-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+                className="w-full py-3 text-xl sm:text-xl bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
               >
                 Leaderboard
+              </motion.button>
+              {/* NFT Button */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleNFTClick}
+                className="w-full py-3 text-xl sm:text-xl bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+              >
+                Free NFT
               </motion.button>
               {/* Updated About Button */}
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleAboutClick} // Use the new handler
-                className="w-full py-3 text-lg sm:text-xl bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+                className="w-full py-3 text-xl sm:text-xl bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
               >
                 About
               </motion.button>
