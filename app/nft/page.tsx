@@ -459,7 +459,7 @@ const NFTPage: React.FC = () => {
             >
               <h2 className="text-2xl font-bold text-purple-300">Monake OG Free Mint</h2>
                              <p className="text-slate-300 text-sm">
-                 The more you&apos;ve got the better. <br/> It&apos;s important for something...
+                 The more you&apos;ve got, the better. <br/> It&apos;s important for something...
                </p>
             </motion.div>
 
