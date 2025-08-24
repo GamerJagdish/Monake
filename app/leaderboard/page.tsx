@@ -21,6 +21,7 @@ import { SECURE_LEADERBOARD_ABI } from '@/lib/leaderboard-abi';
 import { getSignedEntryFee, generateGameSession } from '@/lib/secure-score';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
 import { sdk } from '@farcaster/miniapp-sdk';
+import Image from 'next/image';
 
 const LEADERBOARD_CONTRACT_ADDRESS = '0x9c36dd7af3c84727c43560f32f824067005a210c';
 const LeaderboardABI = SECURE_LEADERBOARD_ABI;
@@ -902,7 +903,7 @@ const LeaderboardPage: React.FC = () => {
                       <div className="flex items-center w-full gap-2">
                         <span className={`font-medium text-xs w-6 text-center ${textClass}`}>{entry.rank}</span>
                         {entry.avatar && (
-                          <img src={entry.avatar} alt={entry.displayName || entry.player} className="w-6 h-6 rounded-full mr-2 flex-shrink-0" />
+                          <Image src={entry.avatar} alt={entry.displayName || entry.player} className="w-6 h-6 rounded-full mr-2 flex-shrink-0" width={24} height={24} />
                         )}
                         <div className="flex flex-col">
                           <span

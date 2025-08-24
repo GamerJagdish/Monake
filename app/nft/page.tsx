@@ -12,6 +12,7 @@ import { CheckCircle, AlertCircle, Info, X, Download, ExternalLink } from 'lucid
 import { MONAKE_NFT_ABI } from '@/lib/nft-abi';
 import confetti from 'canvas-confetti';
 import { NumberTicker } from '@/components/magicui/number-ticker';
+import Image from 'next/image';
 
 // Define chain ID to name mapping
 const chainIdToName: Record<number, string> = {
@@ -414,11 +415,13 @@ const NFTPage: React.FC = () => {
              animate={{ opacity: 1, scale: 1 }}
              transition={{ duration: 0.5, delay: 0.2 }}
            >
-             <img
-               src="/images/icon.png"
-               alt="Monake NFT"
-               className="w-48 h-48 rounded-lg shadow-lg border-2 border-purple-500/50 group-hover:border-purple-400 transition-all duration-300"
-             />
+                           <Image
+                src="/images/icon.png"
+                alt="Monake NFT"
+                width={192}
+                height={192}
+                className="w-48 h-48 rounded-lg shadow-lg border-2 border-purple-500/50 group-hover:border-purple-400 transition-all duration-300"
+              />
            </motion.div>
                        <motion.div
                
@@ -455,9 +458,9 @@ const NFTPage: React.FC = () => {
               transition={{ duration: 0.5, delay: 0.3 }}
             >
               <h2 className="text-2xl font-bold text-purple-300">Monake OG Free Mint</h2>
-              <p className="text-slate-300 text-sm">
-                The more you've got the better. <br/> It's important for something...
-              </p>
+                             <p className="text-slate-300 text-sm">
+                 The more you&apos;ve got the better. <br/> It&apos;s important for something...
+               </p>
             </motion.div>
 
                      {/* Network Switch - Only show if connected but wrong network */}
