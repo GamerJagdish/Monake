@@ -37,9 +37,11 @@ yarn-error.log*
 next-env.d.ts
 
 .env
-
+app/admin
 app/api/notify/broadcast/route.ts
 lib/farcasterUtils.ts
 ignition
 artifacts
 cache
+/lib/past-winners-data.json
+/lib/past-winners.ts

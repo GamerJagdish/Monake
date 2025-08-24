@@ -12,6 +12,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { BackgroundGradientAnimation } from '@/components/ui/BackgroundGradientAnimation';
+import { LoaderFive } from '@/components/ui/loader';
 import { useAccount, useSwitchChain, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 //import { monadTestnet } from 'viem/chains';
 import { monadTestnet } from 'wagmi/chains'
@@ -21,6 +22,7 @@ import { SECURE_LEADERBOARD_ABI } from '@/lib/leaderboard-abi';
 import { getSignedEntryFee, generateGameSession } from '@/lib/secure-score';
 import { useMiniAppContext } from "@/hooks/use-miniapp-context";
 import { sdk } from '@farcaster/miniapp-sdk';
+
 //import Image from 'next/image';
 
 const LEADERBOARD_CONTRACT_ADDRESS = '0x9c36dd7af3c84727c43560f32f824067005a210c';
@@ -35,6 +37,8 @@ interface LeaderboardEntry {
   identity?: string;
   farcasterID?: number;
 }
+
+
 
 // Define notification type
 interface NotificationMessage {
@@ -64,6 +68,8 @@ const LeaderboardPage: React.FC = () => {
   const [notification, setNotification] = useState<NotificationMessage | null>(null);
   const publicClient = usePublicClient({ chainId: monadTestnet.id });
   // console.log('[LeaderboardPage] usePublicClient hook called. Initial publicClient (is it null/undefined?):', publicClient === null ? 'null' : publicClient === undefined ? 'undefined' : 'defined');
+
+
 
   // Handle notification dismissal
   const dismissNotification = () => {
@@ -431,46 +437,67 @@ const LeaderboardPage: React.FC = () => {
 
       setLeaderboardData(initialLeaderboard);
 
-      // Function to fetch a single profile
-      const fetchProfile = async (address: string, contractData?: { farcasterID?: number; username?: string }): Promise<{ displayName?: string; avatar?: string; identity?: string } | null> => {
+      // Function to fetch profiles in bulk using the batch API
+      const fetchProfilesInBulk = async () => {
         try {
-          const response = await fetch(`/api/web3bio?address=${address}`);
-
-          if (response.status === 404) {
-            // Handle 404 by creating dummy profile from contract data
-            if (contractData?.username && contractData.username.length > 0) {
-              return {
-                displayName: contractData.username,
-                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`, // Generate dummy avatar
-                identity: contractData.username
-              };
-            } else if (contractData?.farcasterID && contractData.farcasterID > 0) {
-              return {
-                displayName: `User ${contractData.farcasterID}`,
-                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`, // Generate dummy avatar
-                identity: `user-${contractData.farcasterID}`
-              };
+          // Extract all addresses for bulk fetch
+          const addresses = sortedPlayerData.map(item => item.player);
+          
+          // Use the batch API
+          const url = `/api/web3bio?addresses=${encodeURIComponent(JSON.stringify(addresses))}`;
+          
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
             }
-            return null;
-          }
+          });
 
           if (!response.ok) {
-            return null;
+            console.error('Batch API failed:', response.status);
+            return;
           }
 
-          const profile = await response.json();
-          // Only return profile if it has a valid displayName
-          if (profile?.displayName && typeof profile.displayName === 'string' && profile.displayName.length > 0) {
-            return {
-              displayName: profile.displayName,
-              avatar: profile.avatar,
-              identity: profile.identity
-            };
-          }
-          return null;
+          const batchResult = await response.json();
+
+          // Process the results and update leaderboard
+          batchResult.profiles.forEach((profileResult: any, index: number) => {
+            const { player, farcasterID, username } = sortedPlayerData[index];
+            
+            if (profileResult.error) {
+              // Handle missing profile by creating dummy profile from contract data
+              let dummyProfile = null;
+              if (username && username.length > 0) {
+                dummyProfile = {
+                  displayName: username,
+                  avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${player}`,
+                  identity: username
+                };
+              } else if (farcasterID && farcasterID > 0) {
+                dummyProfile = {
+                  displayName: `User ${farcasterID}`,
+                  avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${player}`,
+                  identity: `user-${farcasterID}`
+                };
+              }
+              
+              if (dummyProfile) {
+                updateLeaderboardWithProfile(player, dummyProfile);
+              }
+            } else {
+              // Valid profile found
+              if (profileResult.displayName && typeof profileResult.displayName === 'string' && profileResult.displayName.length > 0) {
+                const profile = {
+                  displayName: profileResult.displayName,
+                  avatar: profileResult.avatar,
+                  identity: profileResult.identity
+                };
+                updateLeaderboardWithProfile(player, profile);
+              }
+            }
+          });
         } catch (error) {
-          console.error(`[fetchProfile] Error fetching profile for ${address}:`, error);
-          return null;
+          console.error('Error fetching profiles in bulk:', error);
         }
       };
 
@@ -488,21 +515,9 @@ const LeaderboardPage: React.FC = () => {
         }
       };
 
-      // Fetch profiles in background
-      const fetchProfilesInBackground = async () => {
-        // Process profiles sequentially in order of rank
-        for (const { player, farcasterID, username } of sortedPlayerData) {
-          // Always try to fetch profile data from web3bio for display names and avatars
-          const profile = await fetchProfile(player, { farcasterID, username });
-          if (profile) {
-            updateLeaderboardWithProfile(player, profile);
-          }
-        }
-      };
-
-      // Start background profile fetching
-      fetchProfilesInBackground().catch(error => {
-        console.error('[fetchProfilesInBackground] Error:', error);
+      // Start bulk profile fetching
+      fetchProfilesInBulk().catch(error => {
+        console.error('[fetchProfilesInBulk] Error:', error);
       });
 
     } catch (error) {
@@ -796,6 +811,8 @@ const LeaderboardPage: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [currentDay, refetchCurrentDay]);
 
+
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-4 relative pb-24">
       {/* Notification Component */}
@@ -855,6 +872,8 @@ const LeaderboardPage: React.FC = () => {
           <ArrowLeft size={28} />
         </Link>
 
+
+
         <CardHeader className="pt-6 pb-4 text-center">
           <CardTitle className="text-4xl sm:text-5xl font-bold monake-title">Daily Leaderboard</CardTitle>
         </CardHeader>
@@ -876,9 +895,14 @@ const LeaderboardPage: React.FC = () => {
           </div>
 
           <div className="w-full mt-6">
-            <h3 className="text-2xl font-semibold text-center mb-4 text-slate-100">Top 25 Snakes</h3>
+            <h3 className="text-2xl font-semibold text-center mb-4 text-slate-100">
+              Top 25 Snakes
+            </h3>
+
             {isLoadingData ? (
-              <p className="text-center text-slate-400">Loading Top Snakes🐍...</p>
+              <div className="flex items-center justify-center py-8">
+                <LoaderFive text="Loading Top Snakes..." />
+              </div>
             ) : leaderboardData.length > 0 ? (
               <ul className="space-y-3">
                 {leaderboardData.map((entry) => {

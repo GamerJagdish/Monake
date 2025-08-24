@@ -306,7 +306,7 @@ const NFTPage: React.FC = () => {
 
   const handleShareNFT = async () => {
     try {
-      const shareText = `🎨 Just minted a Monake OG NFT! Join the fun and mint your own free NFT on Monad Testnet! 🐍`;
+      const shareText = `Just Minted the OG Monake NFT, Idk why but it's important for something...`;
       const shareUrl = 'https://monake.vercel.app/nft';
       
       await sdk.actions.composeCast({
@@ -582,6 +582,24 @@ const NFTPage: React.FC = () => {
               </motion.button>
             </motion.div>
 
+            {/* NFT Leaderboard Button */}
+            <motion.div
+              className="w-full"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.55 }}
+            >
+              <Link href="/nft-leaderboard" passHref>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="w-full py-3 text-lg sm:text-xl bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+                >
+                  OG Leaderboard
+                </motion.button>
+              </Link>
+            </motion.div>
+
             {/* Share and Back Buttons */}
             <motion.div
               className="w-full flex space-x-3"
@@ -593,7 +611,7 @@ const NFTPage: React.FC = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleShareNFT}
-                className="flex-1 py-3 text-lg bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+                className="flex-1 py-3 text-lg bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
               >
                 Share
               </motion.button>
