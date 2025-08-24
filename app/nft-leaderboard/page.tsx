@@ -82,7 +82,7 @@ const NFTLeaderboardPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-4 relative">
+    <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-2 sm:p-4 relative">
       <BackgroundGradientAnimation
         gradientBackgroundStart="rgb(25, 25, 36)"
         gradientBackgroundEnd="rgb(15, 15, 25)"
@@ -97,81 +97,81 @@ const NFTLeaderboardPage: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-2xl bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 relative"
+        className="w-full max-w-2xl bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 relative mx-2"
       >
-        <CardHeader className="text-center pb-4">
-          <CardTitle className="text-2xl font-bold text-purple-300 flex items-center justify-center gap-2">
+        <CardHeader className="text-center pb-2 sm:pb-4 px-4 sm:px-6">
+          <CardTitle className="text-2xl font-bold text-purple-300 flex items-center justify-center gap-1 sm:gap-2">
             <Trophy className="w-6 h-6" />
             NFT Leaderboard
             <Trophy className="w-6 h-6" />
           </CardTitle>
           {leaderboardData && (
-            <p className="text-slate-400 text-sm">
+            <p className="text-slate-400 text-sm mt-1">
               Total NFTs Minted: {leaderboardData.totalSupply}
             </p>
           )}
         </CardHeader>
 
-        <CardContent className="p-6">
+        <CardContent className="p-3 sm:p-6">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-6 sm:py-8">
               <LoaderFive text="Loading leaderboard..." />
             </div>
           ) : error ? (
-            <div className="text-center py-8">
-              <p className="text-red-400 mb-4">{error}</p>
+            <div className="text-center py-6 sm:py-8">
+              <p className="text-red-400 mb-4 text-sm sm:text-base">{error}</p>
               <button
                 onClick={fetchLeaderboard}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
               >
                 Retry
               </button>
             </div>
           ) : leaderboardData?.leaderboard.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-slate-400 mb-4">No NFT holders found yet.</p>
-              <p className="text-slate-500 text-sm">Be the first to mint an NFT!</p>
+            <div className="text-center py-6 sm:py-8">
+              <p className="text-slate-400 mb-4 text-sm sm:text-base">No NFT holders found yet.</p>
+              <p className="text-slate-500 text-xs sm:text-sm">Be the first to mint an NFT!</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {leaderboardData?.leaderboard.map((entry) => (
                 <motion.div
                   key={entry.address}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: entry.rank * 0.1 }}
-                  className={`p-4 rounded-lg border ${getRankColor(entry.rank)} transition-all duration-200 hover:scale-105`}
+                  className={`p-3 sm:p-4 rounded-lg border ${getRankColor(entry.rank)} transition-all duration-200 hover:scale-105`}
                 >
-                  <div className="flex items-center justify-between">
-                                       <div className="flex items-center gap-3">
-                     <div className="flex items-center gap-2">
-                       {getRankIcon(entry.rank)}
-                       <span className="font-bold text-lg text-purple-300">
-                         #{entry.rank}
-                       </span>
-                     </div>
-                     <div className="flex items-center gap-3">
-                       {entry.avatar && (
-                         <img
-                           src={entry.avatar}
-                           alt={entry.displayName || entry.address}
-                           className="w-8 h-8 rounded-full border-2 border-purple-400/50"
-                           onError={(e) => {
-                             e.currentTarget.style.display = 'none';
-                           }}
-                         />
-                       )}
-                       <div>
-                         <p className="font-medium text-slate-200">
-                           {entry.displayName || `${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`}
-                         </p>
-                         <p className="text-xs text-slate-400">
-                         {`${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`}
-                         </p>
-                       </div>
-                     </div>
-                   </div>
-                    <div className="text-right">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="flex items-center gap-2">
+                        {getRankIcon(entry.rank)}
+                        <span className="font-bold text-lg text-purple-300">
+                          #{entry.rank}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {entry.avatar && (
+                          <img
+                            src={entry.avatar}
+                            alt={entry.displayName || entry.address}
+                            className="w-8 h-8 rounded-full border-2 border-purple-400/50"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-slate-200 text-base">
+                            {entry.displayName || `${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`}
+                          </p>
+                          <p className="text-xs text-slate-400 truncate">
+                            {`${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right sm:text-right mt-1 sm:mt-0">
                       <p className="text-xl font-bold text-green-400">
                         {entry.balance} NFT{entry.balance !== 1 ? 's' : ''}
                       </p>
@@ -182,17 +182,16 @@ const NFTLeaderboardPage: React.FC = () => {
             </div>
           )}
 
-          
-
-          <div className="mt-6 flex justify-center">
+          <div className="mt-4 sm:mt-6 flex justify-center">
             <Link href="/nft" passHref>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
+                className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out text-sm sm:text-base"
               >
-                <ArrowLeft className="w-4 h-4" />
-                Back to NFT Mint
+                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Back to NFT Mint</span>
+                <span className="sm:hidden">Back</span>
               </motion.button>
             </Link>
           </div>
