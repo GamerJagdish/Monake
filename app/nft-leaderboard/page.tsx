@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BackgroundGradientAnimation } from '@/components/ui/BackgroundGradientAnimation';
 import { LoaderFive } from '@/components/ui/loader';
 import { ArrowLeft, Trophy, Medal, Award, Crown } from 'lucide-react';
+import { useReadContract } from 'wagmi';
+import { MONAKE_NFT_ABI } from '@/lib/nft-abi';
 
 interface NFTLeaderboardEntry {
   rank: number;
@@ -22,10 +24,23 @@ interface NFTLeaderboardData {
   timestamp: string;
 }
 
+const NFT_CONTRACT_ADDRESS = '0x9d40e8d15af68f14fdf134120c03013cf0a16d00'; // Deployed NFT contract address
+
 const NFTLeaderboardPage: React.FC = () => {
   const [leaderboardData, setLeaderboardData] = useState<NFTLeaderboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch total supply with auto-refresh from smart contract
+  const { data: fetchedTotalSupply, isLoading: isLoadingTotalSupply } = useReadContract({
+    abi: MONAKE_NFT_ABI,
+    address: NFT_CONTRACT_ADDRESS as `0x${string}`,
+    functionName: 'totalSupply',
+    query: {
+      enabled: (NFT_CONTRACT_ADDRESS as string) !== '0x0000000000000000000000000000000000000000',
+      refetchInterval: 5000, // Refetch every 5 seconds
+    }
+  });
 
   const fetchLeaderboard = async () => {
     try {
@@ -105,11 +120,9 @@ const NFTLeaderboardPage: React.FC = () => {
             NFT Leaderboard
             <Trophy className="w-6 h-6" />
           </CardTitle>
-          {leaderboardData && (
-            <p className="text-slate-400 text-sm mt-1">
-              Total NFTs Minted: {leaderboardData.totalSupply}
-            </p>
-          )}
+          <p className="text-slate-400 text-sm mt-1">
+            Total NFTs Minted: {fetchedTotalSupply !== undefined ? Number(fetchedTotalSupply) : '...'}
+          </p>
         </CardHeader>
 
         <CardContent className="p-3 sm:p-6">
