@@ -10,6 +10,28 @@ interface NFTLeaderboardEntry {
   balance: number;
   displayName?: string;
   avatar?: string;
+  farcasterID?: number;
+  identity?: string;
+}
+
+// Helper function to extract FID from aliases
+function extractFIDFromAliases(aliases: string[]): number | undefined {
+  if (!aliases || aliases.length === 0) return undefined;
+  
+  // Look for the first alias that contains a FID (format: "farcaster,#123456")
+  for (const alias of aliases) {
+    if (alias.startsWith('farcaster,#') && alias.includes(',')) {
+      const fidPart = alias.split(',')[1];
+      if (fidPart && fidPart.startsWith('#')) {
+        const fid = parseInt(fidPart.substring(1));
+        if (!isNaN(fid) && fid > 0) {
+          return fid;
+        }
+      }
+    }
+  }
+  
+  return undefined;
 }
 
 export async function GET(request: Request) {
@@ -60,6 +82,9 @@ export async function GET(request: Request) {
     for (const [address, balance] of holderBalances.entries()) {
       const profile = profilesMap.get(address.toLowerCase()) || null;
       const { displayName, avatar } = getProfileDisplay(profile, address);
+      
+      // Extract FID from aliases
+      const farcasterID = profile?.aliases ? extractFIDFromAliases(profile.aliases) : undefined;
 
       leaderboardEntries.push({
         rank: 0,
@@ -67,6 +92,8 @@ export async function GET(request: Request) {
         balance,
         displayName,
         avatar,
+        farcasterID,
+        identity: profile?.identity,
       });
     }
 
@@ -82,6 +109,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       leaderboard: limitedEntries,
       totalSupply: limitedEntries.reduce((acc, cur) => acc + cur.balance, 0),
+      totalHolders: holderBalances.size, // Return actual total holders count
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

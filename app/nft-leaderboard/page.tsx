@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BackgroundGradientAnimation } from '@/components/ui/BackgroundGradientAnimation';
+import { Card, CardContent } from '@/components/ui/card';
 import { LoaderFive } from '@/components/ui/loader';
-import { ArrowLeft, Trophy, Medal, Award, Crown } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, Award, Crown, Users, Sparkles } from 'lucide-react';
 import { useReadContract } from 'wagmi';
 import { MONAKE_NFT_ABI } from '@/lib/nft-abi';
+import { useMiniAppContext } from '@/hooks/use-miniapp-context';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 interface NFTLeaderboardEntry {
   rank: number;
@@ -15,21 +16,28 @@ interface NFTLeaderboardEntry {
   balance: number;
   displayName?: string;
   avatar?: string;
+  farcasterID?: number;
+  identity?: string;
 }
 
 interface NFTLeaderboardData {
   leaderboard: NFTLeaderboardEntry[];
   totalSupply: number;
+  totalHolders: number;
   message?: string;
   timestamp: string;
 }
 
-const NFT_CONTRACT_ADDRESS = '0x9d40e8d15af68f14fdf134120c03013cf0a16d00'; // Deployed NFT contract address
+const NFT_CONTRACT_ADDRESS = '0x9d40e8d15af68f14fdf134120c03013cf0a16d00';
 
 const NFTLeaderboardPage: React.FC = () => {
   const [leaderboardData, setLeaderboardData] = useState<NFTLeaderboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalHolders, setTotalHolders] = useState<number>(0);
+
+  const { context: miniAppContext } = useMiniAppContext();
+  const farcasterUser = miniAppContext?.user;
 
   // Fetch total supply with auto-refresh from smart contract
   const { data: fetchedTotalSupply, isLoading: isLoadingTotalSupply } = useReadContract({
@@ -38,9 +46,31 @@ const NFTLeaderboardPage: React.FC = () => {
     functionName: 'totalSupply',
     query: {
       enabled: (NFT_CONTRACT_ADDRESS as string) !== '0x0000000000000000000000000000000000000000',
-      refetchInterval: 5000, // Refetch every 5 seconds
+      refetchInterval: 5000,
     }
   });
+
+  // Function to handle Farcaster SDK profile viewing
+  const handleFarcasterProfile = async (fid: number) => {
+    // Check if we have current user's Farcaster context - this indicates SDK is working
+    const isSdkWorking = farcasterUser && farcasterUser.fid && farcasterUser.username;
+    
+    if (!isSdkWorking) {
+      console.log(`[handleFarcasterProfile] SDK not working (no user context), falling back to URL for FID: ${fid}`);
+      // For URL fallback, we need a username, not FID - this will be handled in the click handler
+      return false; // Return false to indicate SDK not available
+    }
+
+    try {
+      console.log(`[handleFarcasterProfile] SDK working (user context available), attempting to view profile for FID: ${fid}`);
+      await sdk.actions.viewProfile({ fid });
+      console.log(`[handleFarcasterProfile] Successfully opened profile for FID: ${fid}`);
+      return true; // Return true to indicate success
+    } catch (error) {
+      console.warn(`[handleFarcasterProfile] SDK viewProfile failed for FID ${fid}:`, error);
+      return false; // Return false to indicate failure
+    }
+  };
 
   const fetchLeaderboard = async () => {
     try {
@@ -54,6 +84,7 @@ const NFTLeaderboardPage: React.FC = () => {
       
       const data = await response.json();
       setLeaderboardData(data);
+      setTotalHolders(data.totalHolders || 0);
     } catch (err) {
       console.error('Error fetching NFT leaderboard:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch leaderboard');
@@ -64,152 +95,221 @@ const NFTLeaderboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchLeaderboard();
-    
-    // Refresh every 5 minutes
     const interval = setInterval(fetchLeaderboard, 300000);
     return () => clearInterval(interval);
   }, []);
 
-  const getRankIcon = (rank: number) => {
+  const getRankBadge = (rank: number) => {
     switch (rank) {
       case 1:
-        return <Crown className="w-5 h-5 text-yellow-400" />;
+        return (
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 text-black font-bold text-sm">
+            1
+          </div>
+        );
       case 2:
-        return <Medal className="w-5 h-5 text-gray-300" />;
+        return (
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 text-black font-bold text-sm">
+            2
+          </div>
+        );
       case 3:
-        return <Award className="w-5 h-5 text-amber-600" />;
+        return (
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 text-white font-bold text-sm">
+            3
+          </div>
+        );
       default:
-        return <Trophy className="w-4 h-4 text-purple-400" />;
-    }
-  };
-
-  const getRankColor = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return 'bg-gradient-to-r from-yellow-400/20 to-yellow-600/20 border-yellow-400/50';
-      case 2:
-        return 'bg-gradient-to-r from-gray-300/20 to-gray-500/20 border-gray-300/50';
-      case 3:
-        return 'bg-gradient-to-r from-amber-600/20 to-amber-800/20 border-amber-600/50';
-      default:
-        return 'bg-gray-800/50 border-gray-600/50';
+        return (
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-700 text-slate-300 font-bold text-sm">
+            {rank}
+          </div>
+        );
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen w-full text-slate-200 p-2 sm:p-4 relative">
-      <BackgroundGradientAnimation
-        gradientBackgroundStart="rgb(25, 25, 36)"
-        gradientBackgroundEnd="rgb(15, 15, 25)"
-        firstColor="18, 113, 255"
-        secondColor="221, 74, 255"
-        thirdColor="100, 220, 255"
-        fourthColor="200, 50, 50"
-        fifthColor="180, 180, 50"
-      />
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-slate-200">
+      
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-2xl bg-gray-800/80 border-gray-700 shadow-xl rounded-xl backdrop-blur-sm z-10 relative mx-2"
-      >
-        <CardHeader className="text-center pb-2 sm:pb-4 px-4 sm:px-6">
-          <CardTitle className="text-2xl font-bold text-purple-300 flex items-center justify-center gap-1 sm:gap-2">
-            <Trophy className="w-6 h-6" />
-            NFT Leaderboard
-            <Trophy className="w-6 h-6" />
-          </CardTitle>
-          <p className="text-slate-400 text-sm mt-1">
-            Total NFTs Minted: {fetchedTotalSupply !== undefined ? Number(fetchedTotalSupply) : '...'}
-          </p>
-        </CardHeader>
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-gray-900/80 backdrop-blur-md border-b border-gray-700">
+        <div className="flex items-center justify-between p-4">
+          <Link href="/nft" passHref>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-lg transition-all duration-200 border border-purple-500/30"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm font-medium">Back</span>
+            </motion.button>
+          </Link>
+          
+          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+            <Trophy className="w-5 h-5 text-purple-400" />
+            <h1 className="text-lg font-bold text-purple-300 whitespace-nowrap">OG Leaderboard</h1>
+          </div>
+          
+          <div className="w-20" /> {/* Spacer for centering */}
+        </div>
+      </div>
 
-        <CardContent className="p-3 sm:p-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-6 sm:py-8">
-              <LoaderFive text="Loading leaderboard..." />
-            </div>
-          ) : error ? (
-            <div className="text-center py-6 sm:py-8">
-              <p className="text-red-400 mb-4 text-sm sm:text-base">{error}</p>
-              <button
-                onClick={fetchLeaderboard}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
-              >
-                Retry
-              </button>
-            </div>
-          ) : leaderboardData?.leaderboard.length === 0 ? (
-            <div className="text-center py-6 sm:py-8">
-              <p className="text-slate-400 mb-4 text-sm sm:text-base">No NFT holders found yet.</p>
-              <p className="text-slate-500 text-xs sm:text-sm">Be the first to mint an NFT!</p>
-            </div>
-          ) : (
-            <div className="space-y-2 sm:space-y-3">
-              {leaderboardData?.leaderboard.map((entry) => (
-                <motion.div
-                  key={entry.address}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: entry.rank * 0.1 }}
-                  className={`p-3 sm:p-4 rounded-lg border ${getRankColor(entry.rank)} transition-all duration-200 hover:scale-105`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2">
-                        {getRankIcon(entry.rank)}
-                        <span className="font-bold text-lg text-purple-300">
-                          #{entry.rank}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {entry.avatar && (
-                          <img
-                            src={entry.avatar}
-                            alt={entry.displayName || entry.address}
-                            className="w-8 h-8 rounded-full border-2 border-purple-400/50"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-slate-200 text-base">
-                            {entry.displayName || `${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`}
-                          </p>
-                          <p className="text-xs text-slate-400 truncate">
-                            {`${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`}
-                          </p>
+      {/* Main Content */}
+      <div className="pt-20 pb-6 px-4">
+        {/* Stats Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-6"
+        >
+          <Card className="bg-gray-800/60 border-gray-700/50 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-500/20 rounded-lg">
+                    <Sparkles className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-400">Total NFTs Minted</p>
+                    <p className="text-xl font-bold text-purple-300">
+                      {fetchedTotalSupply !== undefined ? Number(fetchedTotalSupply) : '...'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <Users className="w-5 h-5 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-slate-400">Holders</p>
+                    <p className="text-xl font-bold text-green-300">
+                      {totalHolders}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Leaderboard */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <Card className="bg-gray-800/60 border-gray-700/50 backdrop-blur-sm">
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="flex text-white items-center justify-center py-12">
+                  <LoaderFive text="Loading OG leaderboard..." />
+                </div>
+              ) : error ? (
+                <div className="text-center py-12 px-4">
+                  <p className="text-red-400 mb-4">{error}</p>
+                  <button
+                    onClick={fetchLeaderboard}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : leaderboardData?.leaderboard.length === 0 ? (
+                <div className="text-center py-12 px-4">
+                  <Trophy className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                  <p className="text-slate-400 mb-2">No NFT holders yet</p>
+                  <p className="text-slate-500 text-sm">Be the first to mint an NFT!</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-700/50">
+                  {leaderboardData?.leaderboard.map((entry, index) => (
+                    <motion.div
+                      key={entry.address}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                      className="p-4 hover:bg-gray-700/30 transition-colors duration-200"
+                    >
+                      <div className="flex items-center gap-4">
+                        {/* Rank Badge */}
+                        <div className="flex-shrink-0">
+                          {getRankBadge(entry.rank)}
+                        </div>
+
+                        {/* User Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3">
+                            {entry.avatar && (
+                              <img
+                                src={entry.avatar}
+                                alt={entry.displayName || entry.address}
+                                className="w-10 h-10 rounded-full border-2 border-purple-400/50 flex-shrink-0"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-slate-200 truncate">
+                                {entry.displayName ? (
+                                  <button
+                                    onClick={async () => {
+                                      if (entry.farcasterID && entry.farcasterID > 0) {
+                                        // Try SDK first when we have farcaster ID
+                                        const sdkSuccess = await handleFarcasterProfile(entry.farcasterID);
+                                        if (!sdkSuccess && entry.identity) {
+                                          // Fallback to URL with username if SDK fails
+                                          window.open(`https://farcaster.xyz/${entry.identity}`, '_blank');
+                                        }
+                                      } else if (entry.identity) {
+                                        // Direct URL approach when no farcaster ID but have identity
+                                        window.open(`https://farcaster.xyz/${entry.identity}`, '_blank');
+                                      }
+                                      // If no farcaster ID and no identity, do nothing
+                                    }}
+                                    className="text-left hover:text-purple-300 transition-colors cursor-pointer"
+                                    title={entry.displayName}
+                                  >
+                                    {entry.displayName}
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-200">
+                                    {`${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-slate-400 truncate">
+                                {`${entry.address.slice(0, 6)}...${entry.address.slice(-4)}`}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* NFT Count */}
+                        <div className="flex-shrink-0 text-right">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold text-green-400">
+                              {entry.balance}
+                            </span>
+                            <span className="text-sm text-slate-400">
+                              NFT{entry.balance !== 1 ? 's' : ''}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="text-right sm:text-right mt-1 sm:mt-0">
-                      <p className="text-xl font-bold text-green-400">
-                        {entry.balance} NFT{entry.balance !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
 
-          <div className="mt-4 sm:mt-6 flex justify-center">
-            <Link href="/nft" passHref>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out text-sm sm:text-base"
-              >
-                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Back to NFT Mint</span>
-                <span className="sm:hidden">Back</span>
-              </motion.button>
-            </Link>
-          </div>
-        </CardContent>
-      </motion.div>
+        {/* Bottom Spacing */}
+        <div className="h-6" />
+      </div>
     </div>
   );
 };
