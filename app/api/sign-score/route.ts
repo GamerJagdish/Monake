@@ -150,13 +150,6 @@ async function validateGameData(gameData: GameData, score: number, isEntryFee: b
       return !!(gameStartTime && gameEndTime && gameSession);
     }
 
-    // For actual score submissions, do full validation
-    // Check if game duration is reasonable (not too fast, not too slow)
-    const gameDuration = gameEndTime - gameStartTime;
-    if (gameDuration < 10000 || gameDuration > 600000) { // 10 seconds to 10 minutes
-      return false;
-    }
-
     // Verify the score matches what was reported
     if (finalScore !== score) {
       return false;
