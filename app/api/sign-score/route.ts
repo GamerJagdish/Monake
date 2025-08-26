@@ -71,13 +71,13 @@ export async function POST(request: Request) {
 
     // TODO: Add additional game validation logic here
     // For example, validate game session, check for suspicious patterns, etc.
-    // const isValidGame = await validateGameData(gameData, score, isEntryFee);
-    // if (!isValidGame) {
-    //   return NextResponse.json(
-    //     { error: 'Invalid game data or suspicious activity detected' },
-    //     { status: 400 }
-    //   );
-    // }
+    const isValidGame = await validateGameData(gameData, score, isEntryFee);
+    if (!isValidGame) {
+      return NextResponse.json(
+        { error: 'Invalid game data or suspicious activity detected' },
+        { status: 400 }
+      );
+    }
 
     // Create timestamp for the signature
     const timestamp = Math.floor(Date.now() / 1000);
