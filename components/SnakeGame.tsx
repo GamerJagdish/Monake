@@ -903,7 +903,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
     // Throttle key input to prevent too many direction changes
     const now = Date.now();
-    if (now - lastKeyPressTime.current < 80) return; // 80ms throttle for responsive feel
+    if (now - lastKeyPressTime.current < 10) return; // 10ms throttle for responsive feel
     lastKeyPressTime.current = now;
 
     const latestDir = directionQueueRef.current.length > 0
