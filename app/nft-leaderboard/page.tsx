@@ -9,6 +9,7 @@ import { useReadContract } from 'wagmi';
 import { MONAKE_NFT_ABI } from '@/lib/nft-abi';
 import { useMiniAppContext } from '@/hooks/use-miniapp-context';
 import { sdk } from '@farcaster/miniapp-sdk';
+import { NumberTicker } from '@/components/magicui/number-ticker';
 
 interface NFTLeaderboardEntry {
   rank: number;
@@ -35,6 +36,9 @@ const NFTLeaderboardPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalHolders, setTotalHolders] = useState<number>(0);
+  const [animatedTotalSupply, setAnimatedTotalSupply] = useState<number>(0);
+  const [animatedTotalHolders, setAnimatedTotalHolders] = useState<number>(0);
+  const [hasInitialData, setHasInitialData] = useState<boolean>(false);
 
   const { context: miniAppContext } = useMiniAppContext();
   const farcasterUser = miniAppContext?.user;
@@ -92,6 +96,43 @@ const NFTLeaderboardPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Handle animated counters
+  useEffect(() => {
+    if (fetchedTotalSupply !== undefined) {
+      const totalSupplyNumber = Number(fetchedTotalSupply);
+      if (!hasInitialData) {
+        // First time loading - animate from 0 to current value with a small delay
+        setTimeout(() => {
+          setAnimatedTotalSupply(totalSupplyNumber);
+        }, 500);
+      } else {
+        // Subsequent updates - animate from current to new value
+        setAnimatedTotalSupply(totalSupplyNumber);
+      }
+    }
+  }, [fetchedTotalSupply, hasInitialData]);
+
+  useEffect(() => {
+    if (!hasInitialData) {
+      // First time loading - animate from 0 to 275 with a delay
+      setTimeout(() => {
+        setAnimatedTotalHolders(275);
+      }, 800); // Slightly longer delay for holders to create a staggered effect
+    } else if (totalHolders > 0) {
+      // After initial animation, animate from 275 to actual value
+      setTimeout(() => {
+        setAnimatedTotalHolders(totalHolders);
+      }, 1200); // Delay after the initial 275 animation
+    }
+  }, [totalHolders, hasInitialData]);
+
+  // Set hasInitialData to true after first data load
+  useEffect(() => {
+    if ((fetchedTotalSupply !== undefined || totalHolders > 0) && !hasInitialData) {
+      setHasInitialData(true);
+    }
+  }, [fetchedTotalSupply, totalHolders, hasInitialData]);
 
   useEffect(() => {
     fetchLeaderboard();
@@ -174,7 +215,19 @@ const NFTLeaderboardPage: React.FC = () => {
                   <div>
                     <p className="text-sm text-slate-400">Total NFTs Minted</p>
                     <p className="text-xl font-bold text-purple-300">
-                      {fetchedTotalSupply !== undefined ? Number(fetchedTotalSupply) : '...'}
+                      {fetchedTotalSupply !== undefined ? (
+                        <NumberTicker
+                          value={animatedTotalSupply}
+                          startValue={Math.max(0, animatedTotalSupply - 1)}
+                          className="text-xl font-bold text-purple-300"
+                        />
+                      ) : (
+                        <NumberTicker
+                          value={0}
+                          startValue={0}
+                          className="text-xl font-bold text-purple-300"
+                        />
+                      )}
                     </p>
                   </div>
                 </div>
@@ -184,9 +237,13 @@ const NFTLeaderboardPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-sm text-slate-400">Holders</p>
-                    <p className="text-xl font-bold text-green-300">
-                      {totalHolders}
-                    </p>
+                                         <p className="text-xl font-bold text-green-300">
+                       <NumberTicker
+                         value={animatedTotalHolders}
+                         startValue={hasInitialData ? Math.max(0, animatedTotalHolders - 1) : 0}
+                         className="text-xl font-bold text-green-300"
+                       />
+                     </p>
                   </div>
                 </div>
               </div>
