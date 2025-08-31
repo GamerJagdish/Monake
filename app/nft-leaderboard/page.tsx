@@ -115,15 +115,15 @@ const NFTLeaderboardPage: React.FC = () => {
 
   useEffect(() => {
     if (!hasInitialData) {
-      // First time loading - animate from 0 to 275 with a delay
+      // First time loading - animate from 0 to 350 with a delay
       setTimeout(() => {
-        setAnimatedTotalHolders(275);
+        setAnimatedTotalHolders(350);
       }, 800); // Slightly longer delay for holders to create a staggered effect
     } else if (totalHolders > 0) {
-      // After initial animation, animate from 275 to actual value
+      // After initial animation, animate from 350 to actual value
       setTimeout(() => {
         setAnimatedTotalHolders(totalHolders);
-      }, 1200); // Delay after the initial 275 animation
+      }, 1200); // Delay after the initial 350 animation
     }
   }, [totalHolders, hasInitialData]);
 
