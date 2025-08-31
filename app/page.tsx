@@ -16,7 +16,20 @@ const frame = {
     },
   },
 };
-
+const miniapp = {
+  version: "1",
+  imageUrl: `${APP_URL}/images/feed.png`,
+  button: {
+    title: "Play Game",
+    action: {
+      type: "launch_miniapp",
+      name: "Monake on Monad",
+      url: APP_URL,
+      splashImageUrl: `${APP_URL}/images/splash.png`,
+      splashBackgroundColor: "#f7f7f7",
+    },
+  },
+};
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Monake on Monad",
@@ -26,6 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     other: {
       "fc:frame": JSON.stringify(frame),
+      "fc:miniapp": JSON.stringify(miniapp),
     },
   };
 }
