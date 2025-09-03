@@ -124,7 +124,7 @@ const CountdownTimer: React.FC = () => {
            ) : (
              <>
                <span className="text-yellow-400">⏰</span>
-               <span className="bg-gradient-to-r from-red-400 via-pink-500 to-purple-600 bg-clip-text text-transparent"> MINTING ENDS SOON! DON'T MISS OUT! </span>
+               <span className="bg-gradient-to-r from-red-400 via-pink-500 to-purple-600 bg-clip-text text-transparent"> MINTING ENDS SOON! DON&apos;T MISS OUT! </span>
                <span className="text-yellow-400">⏰</span>
              </>
            )}
