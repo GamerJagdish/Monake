@@ -10,7 +10,7 @@ export async function GET() {
         signature: "MHgyMzM2NDBlYmE0ZGE2NDQ1ZTg1OTU4ZDFiZjE5OGFhMDFhOTM3YjI5Y2JiOTI4NDg1MjJjMjMzMzhhY2E0MmE3MjdiZjQ0Y2M4NDBjMDhiMWI1YzNiYWQ1MGExNTFiZTA2ODZmMmUwYjFjZmQ0ZjJiYzFkOWM1NDIzYTM3YTgzNjFi"
       },
     
-    frame: {
+    miniapp: {
       version: "1",
       name: "Monad Snake - Monake",
       iconUrl: `${APP_URL}/images/icon.png`,

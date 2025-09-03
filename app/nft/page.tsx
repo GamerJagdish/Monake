@@ -41,6 +41,241 @@ interface NotificationMessage {
 
 const NFT_CONTRACT_ADDRESS = '0x9d40e8d15af68f14fdf134120c03013cf0a16d00'; // Deployed NFT contract address
 
+// Countdown Timer Component
+const CountdownTimer: React.FC = () => {
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0
+  });
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const targetDate = new Date('2025-09-30T23:59:59').getTime();
+
+    // Calculate initial time immediately
+    const now = new Date().getTime();
+    const difference = targetDate - now;
+
+    if (difference > 0) {
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      setTimeLeft({ days, hours, minutes, seconds });
+    } else {
+      setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+    }
+    
+    setIsLoaded(true);
+
+    const timer = setInterval(() => {
+      const now = new Date().getTime();
+      const difference = targetDate - now;
+
+      if (difference > 0) {
+        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+        setTimeLeft({ days, hours, minutes, seconds });
+      } else {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Check if we're in the final 24 hours for extra urgency
+  const isFinalDay = timeLeft.days === 0 && timeLeft.hours < 24;
+  const isFinalHour = timeLeft.days === 0 && timeLeft.hours === 0;
+
+  // Don't render until time is loaded to prevent flash
+  if (!isLoaded) {
+    return null;
+  }
+
+  return (
+    <motion.div
+      className="text-center space-y-2"
+      initial={{ opacity: 0, y: 5, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.4, delay: 0.1 }}
+    >
+      {/* Compact Urgent Header */}
+      <motion.div
+        className="relative"
+        animate={isFinalDay ? { scale: [1, 1.02, 1] } : {}}
+        transition={{ duration: 1, repeat: isFinalDay ? Infinity : 0 }}
+      >
+                 <h3 className="text-xs font-bold">
+           {isFinalHour ? (
+             <>
+               <span className="text-red-400">🚨FINAL HOUR! MINT NOW!🚨</span>
+             </>
+           ) : isFinalDay ? (
+             <>
+               <span className="text-orange-400">🔥LAST CHANCE! MINTING ENDS TODAY!🔥</span>
+             </>
+           ) : (
+             <>
+               <span className="text-yellow-400">⏰</span>
+               <span className="bg-gradient-to-r from-red-400 via-pink-500 to-purple-600 bg-clip-text text-transparent"> MINTING ENDS SOON! DON'T MISS OUT! </span>
+               <span className="text-yellow-400">⏰</span>
+             </>
+           )}
+         </h3>
+        {isFinalDay && (
+          <motion.div
+            className="absolute -inset-1 bg-gradient-to-r from-red-500 via-pink-500 to-purple-500 rounded-lg blur opacity-75"
+            animate={{ opacity: [0.5, 0.8, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+        )}
+      </motion.div>
+
+      {/* Compact Countdown Grid */}
+      <div className="grid grid-cols-4 gap-2 max-w-xs mx-auto">
+        <motion.div 
+          className="flex flex-col items-center"
+          whileHover={{ scale: 1.05 }}
+          animate={isFinalDay ? { y: [0, -1, 0] } : {}}
+          transition={{ duration: 0.5, repeat: isFinalDay ? Infinity : 0 }}
+        >
+          <div className={`relative overflow-hidden rounded-lg px-2 py-1.5 min-w-[50px] ${
+            isFinalDay ? 'bg-gradient-to-br from-red-500/30 to-red-600/30 border-2 border-red-400/60' :
+            'bg-gradient-to-br from-purple-600/30 to-purple-700/30 border border-purple-500/50'
+          }`}>
+            <NumberTicker
+              value={timeLeft.days}
+              className={`text-lg font-black ${
+                isFinalDay ? 'text-red-300' : 'text-purple-300'
+              }`}
+            />
+            {isFinalDay && (
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-red-400/20 to-transparent"
+                animate={{ x: [-100, 100] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              />
+            )}
+          </div>
+          <span className={`text-xs mt-1 font-medium ${
+            isFinalDay ? 'text-red-400' : 'text-slate-400'
+          }`}>DAYS</span>
+        </motion.div>
+
+        <motion.div 
+          className="flex flex-col items-center"
+          whileHover={{ scale: 1.05 }}
+          animate={isFinalDay ? { y: [0, -1, 0] } : {}}
+          transition={{ duration: 0.5, repeat: isFinalDay ? Infinity : 0, delay: 0.1 }}
+        >
+          <div className={`relative overflow-hidden rounded-lg px-2 py-1.5 min-w-[50px] ${
+            isFinalDay ? 'bg-gradient-to-br from-orange-500/30 to-orange-600/30 border-2 border-orange-400/60' :
+            'bg-gradient-to-br from-purple-600/30 to-purple-700/30 border border-purple-500/50'
+          }`}>
+            <NumberTicker
+              value={timeLeft.hours}
+              className={`text-lg font-black ${
+                isFinalDay ? 'text-green-300' : 'text-purple-300'
+              }`}
+            />
+            {isFinalDay && (
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-400/20 to-transparent"
+                animate={{ x: [-100, 100] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+              />
+            )}
+          </div>
+          <span className={`text-xs mt-1 font-medium ${
+            isFinalDay ? 'text-orange-400' : 'text-slate-400'
+          }`}>HOURS</span>
+        </motion.div>
+
+        <motion.div 
+          className="flex flex-col items-center"
+          whileHover={{ scale: 1.05 }}
+          animate={isFinalDay ? { y: [0, -1, 0] } : {}}
+          transition={{ duration: 0.5, repeat: isFinalDay ? Infinity : 0, delay: 0.2 }}
+        >
+          <div className={`relative overflow-hidden rounded-lg px-2 py-1.5 min-w-[50px] ${
+            isFinalDay ? 'bg-gradient-to-br from-yellow-500/30 to-yellow-600/30 border-2 border-yellow-400/60' :
+            'bg-gradient-to-br from-purple-600/30 to-purple-700/30 border border-purple-500/50'
+          }`}>
+            <NumberTicker
+              value={timeLeft.minutes}
+              className={`text-lg font-black ${
+                isFinalDay ? 'text-yellow-300' : 'text-purple-300'
+              }`}
+            />
+            {isFinalDay && (
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-400/20 to-transparent"
+                animate={{ x: [-100, 100] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+              />
+            )}
+          </div>
+          <span className={`text-xs mt-1 font-medium ${
+            isFinalDay ? 'text-yellow-400' : 'text-slate-400'
+          }`}>MINUTES</span>
+        </motion.div>
+
+        <motion.div 
+          className="flex flex-col items-center"
+          whileHover={{ scale: 1.05 }}
+          animate={isFinalDay ? { y: [0, -1, 0] } : {}}
+          transition={{ duration: 0.5, repeat: isFinalDay ? Infinity : 0, delay: 0.3 }}
+        >
+          <div className={`relative overflow-hidden rounded-lg px-2 py-1.5 min-w-[50px] ${
+            isFinalDay ? 'bg-gradient-to-br from-green-500/30 to-green-600/30 border-2 border-green-400/60' :
+            'bg-gradient-to-br from-purple-600/30 to-purple-700/30 border border-purple-500/50'
+          }`}>
+            <NumberTicker
+              value={timeLeft.seconds}
+              className={`text-lg font-black ${
+                isFinalDay ? 'text-green-300' : 'text-purple-300'
+              }`}
+            />
+            {isFinalDay && (
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-green-400/20 to-transparent"
+                animate={{ x: [-100, 100] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: 0.6 }}
+              />
+            )}
+          </div>
+          <span className={`text-xs mt-1 font-medium ${
+            isFinalDay ? 'text-green-400' : 'text-slate-400'
+          }`}>SECONDS</span>
+        </motion.div>
+      </div>
+
+      {/* Compact FOMO Message */}
+      <motion.div
+        className="text-center"
+        animate={isFinalDay ? { scale: [1, 1.01, 1] } : {}}
+        transition={{ duration: 2, repeat: isFinalDay ? Infinity : 0 }}
+      >
+        <p className={`text-xs font-medium ${
+          isFinalDay ? 'text-red-300' : 'text-slate-300'
+        }`}>
+          {isFinalHour ? "⚡ONLY MINUTES LEFT! MINT NOW OR MISS FOREVER!⚡" :
+           isFinalDay ? "🔥LAST DAY! DON'T BE THE ONE WHO MISSED OUT!🔥" :
+           "Secure your OG status today!"}
+        </p>
+      </motion.div>
+     
+    </motion.div>
+  );
+};
+
 const NFTPage: React.FC = () => {
   const [notification, setNotification] = useState<NotificationMessage | null>(null);
   const [isMinting, setIsMinting] = useState(false);
@@ -406,9 +641,10 @@ const NFTPage: React.FC = () => {
                  
 
         <CardContent className="flex flex-col items-center space-y-6 p-6">
-          {/* Cool Counter */}
+          {/* Countdown Timer */}
+          <CountdownTimer />
           
-                     {/* NFT Image */}
+          {/* NFT Image */}
            <motion.div
              className="relative group"
              initial={{ opacity: 0, scale: 0.8 }}
