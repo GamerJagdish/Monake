@@ -52,7 +52,7 @@ const CountdownTimer: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const targetDate = new Date('2025-09-30T23:59:59').getTime();
+    const targetDate = new Date('2025-09-23T23:59:59').getTime();
 
     // Calculate initial time immediately
     const now = new Date().getTime();
