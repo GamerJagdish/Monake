@@ -68,23 +68,18 @@ const getRandomFoodType = (isSuper: boolean = false): FoodItem => {
   return foods[Math.floor(Math.random() * foods.length)];
 };
 
-const getRandomPosition = (existingPositions: { x: number, y: number }[] = []) => {
-  // Optimized: Use Set for O(1) lookup instead of Array.some() which is O(n)
+const getRandomPosition = (existingPositions: { x: number, y: number }[] = []): Position | null => {
   const occupiedSet = new Set(existingPositions.map(p => `${p.x},${p.y}`));
-
-  let newPos: Position;
-  let attempts = 0;
-  const maxAttempts = 100; // Prevent infinite loop in edge cases
-
-  do {
-    newPos = {
-      x: Math.floor(Math.random() * GRID_WIDTH),
-      y: Math.floor(Math.random() * GRID_HEIGHT),
-    };
-    attempts++;
-  } while (occupiedSet.has(`${newPos.x},${newPos.y}`) && attempts < maxAttempts);
-
-  return newPos;
+  const freePositions: Position[] = [];
+  for (let y = 0; y < GRID_HEIGHT; y++) {
+    for (let x = 0; x < GRID_WIDTH; x++) {
+      if (!occupiedSet.has(`${x},${y}`)) {
+        freePositions.push({ x, y });
+      }
+    }
+  }
+  if (freePositions.length === 0) return null;
+  return freePositions[Math.floor(Math.random() * freePositions.length)];
 };
 
 interface Position { x: number; y: number; }
@@ -425,14 +420,47 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   // Remove wagmi hook calls
   // const { address, isConnected, chainId } = useAccount();
   const initialSnakePosition = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
-  const [snake, setSnake] = useState<Position[]>([initialSnakePosition]); // Logical snake
+  const generateSerpentineOrder = useCallback((): Position[] => {
+    const order: Position[] = [];
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      if (y % 2 === 0) {
+        for (let x = 0; x < GRID_WIDTH; x++) order.push({ x, y });
+      } else {
+        for (let x = GRID_WIDTH - 1; x >= 0; x--) order.push({ x, y });
+      }
+    }
+    return order;
+  }, []);
+
+  const buildInitialSnake = useCallback((length: number): Position[] => {
+    const clampedLength = Math.max(1, Math.min(length, GRID_WIDTH * GRID_HEIGHT));
+    const serp = generateSerpentineOrder();
+    const center = { ...initialSnakePosition };
+    let centerIndex = serp.findIndex(p => p.x === center.x && p.y === center.y);
+    if (centerIndex < 0) centerIndex = Math.floor(serp.length / 2);
+
+    const segments: Position[] = [];
+    // Start at center and walk backwards through serpentine order, then forwards
+    for (let i = centerIndex; i >= 0 && segments.length < clampedLength; i--) {
+      segments.push(serp[i]);
+    }
+    for (let i = centerIndex + 1; i < serp.length && segments.length < clampedLength; i++) {
+      segments.push(serp[i]);
+    }
+    return segments.slice(0, clampedLength);
+  }, [generateSerpentineOrder, initialSnakePosition]);
+
+  const [snake, setSnake] = useState<Position[]>(() => buildInitialSnake(1)); // Logical snake
   const [visualSnake, setVisualSnake] = useState<Position[]>([{ ...initialSnakePosition }]); // Visual snake for rendering
   const logicalSnakeRef = useRef<Position[]>([{ ...initialSnakePosition }]);
 
-  const [food, setFood] = useState(() => ({
-    ...getRandomPosition(),
-    type: getRandomFoodType(),
-  }));
+  const [food, setFood] = useState(() => {
+    const pos = getRandomPosition([initialSnakePosition]) || { x: 0, y: 0 };
+    return {
+      ...pos,
+      type: getRandomFoodType(),
+    };
+  });
   const foodRef = useRef(food); // Add ref to prevent stale closures
   const [superFood, setSuperFood] = useState<SuperFoodState | null>(null);
   const superFoodRef = useRef<SuperFoodState | null>(null); // Add ref to prevent stale closures
@@ -643,6 +671,10 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     setVisualSnake([...snake]);
   }, [snake]);
 
+  
+
+  
+
   // Cleanup function to clear all timers on unmount
   useEffect(() => {
     return () => {
@@ -657,6 +689,10 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
+      }
+      if (miniVideoTimerRef.current) {
+        clearInterval(miniVideoTimerRef.current);
+        miniVideoTimerRef.current = null;
       }
     };
   }, []);
@@ -688,10 +724,13 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       occupiedPositions.push({ x: currentSuperFood.x, y: currentSuperFood.y });
     }
 
-    setFood({
-      ...getRandomPosition(occupiedPositions),
-      type: getRandomFoodType(),
-    });
+    const pos = getRandomPosition(occupiedPositions);
+    if (pos) {
+      setFood({
+        ...pos,
+        type: getRandomFoodType(),
+      });
+    }
   }, []); // No dependencies needed since we use refs
 
   const trySpawnSuperFood = useCallback(() => {
@@ -716,11 +755,14 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
           occupiedPositions.push({ x: currentFood.x, y: currentFood.y });
         }
 
-        setSuperFood({
-          ...getRandomPosition(occupiedPositions),
-          type: superFoodType,
-          timer: superFoodType.duration,
-        });
+        const pos = getRandomPosition(occupiedPositions);
+        if (pos) {
+          setSuperFood({
+            ...pos,
+            type: superFoodType,
+            timer: superFoodType.duration,
+          });
+        }
       }
     }
   }, []); // No dependencies needed since we use refs
@@ -925,6 +967,137 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const superFoodTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showCatVideoFullscreen, setShowCatVideoFullscreen] = useState(false);
+  const [showCatVideoMini, setShowCatVideoMini] = useState(false);
+  const catVideoRef = useRef<HTMLVideoElement | null>(null);
+  const miniVideoPosRef = useRef<{ x: number; y: number }>({ x: 20, y: 20 });
+  const miniVideoVelRef = useRef<{ vx: number; vy: number }>({ vx: 2, vy: 2 });
+  const miniAnimFrameRef = useRef<number | null>(null);
+  const miniXRef = useRef<number>(20);
+  const miniYRef = useRef<number>(20);
+  const miniDirRef = useRef<{ dx: number; dy: number }>({ dx: 1, dy: 1 });
+  const miniSpeedRef = useRef<number>(2);
+  const [miniVideoPos, setMiniVideoPos] = useState<{ x: number; y: number }>({ x: 20, y: 20 });
+  const miniVideoSize = { width: 200, height: 112 }; // ~16:9
+  const miniVideoTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [miniVideoStartTime, setMiniVideoStartTime] = useState<number>(32);
+
+  
+
+  const handleBoardFull = useCallback(() => {
+    if (showCatVideoFullscreen || showCatVideoMini) return; // Already handling
+    // Pause game and show fullscreen video
+    setIsPaused(true);
+    setShowCatVideoFullscreen(true);
+
+    // Start or restart the video playback
+    setTimeout(() => {
+      if (catVideoRef.current) {
+        try { catVideoRef.current.currentTime = 0; } catch {}
+        catVideoRef.current.play().catch(() => {});
+      }
+    }, 0);
+
+    // After 32 seconds, minimize video and resume game
+    setTimeout(() => {
+      setShowCatVideoFullscreen(false);
+      // Keep the same <video> element so playback time is preserved
+      setShowCatVideoMini(true);
+      // Randomize initial mini position and direction
+      try {
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const startX = Math.max(1, Math.floor(Math.random() * Math.max(2, viewportWidth - miniVideoSize.width - 2)));
+        const startY = Math.max(1, Math.floor(Math.random() * Math.max(2, viewportHeight - miniVideoSize.height - 2)));
+        miniVideoPosRef.current = { x: startX, y: startY };
+        setMiniVideoPos({ x: startX, y: startY });
+        miniXRef.current = startX;
+        miniYRef.current = startY;
+        miniDirRef.current = { dx: Math.random() < 0.5 ? -1 : 1, dy: Math.random() < 0.5 ? -1 : 1 };
+        miniSpeedRef.current = 2;
+      } catch {}
+      // Reset snake to allow movement again, preserving score
+      const initialPos = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
+      setSnake([initialPos]);
+      logicalSnakeRef.current = [initialPos];
+      directionRef.current = { x: 1, y: 0 };
+      directionQueueRef.current = [];
+      const pos = getRandomPosition([initialPos]);
+      if (pos) {
+        setFood({ ...pos, type: getRandomFoodType() });
+      }
+      setSuperFood(null);
+      setGameOver(false);
+      setIsPaused(false);
+    }, 32000);
+  }, [showCatVideoFullscreen, showCatVideoMini]);
+
+  // Mini video bouncing movement loop (DVD style)
+  useEffect(() => {
+    if (!showCatVideoMini) {
+      if (miniAnimFrameRef.current) cancelAnimationFrame(miniAnimFrameRef.current);
+      miniAnimFrameRef.current = null;
+      return;
+    }
+    const step = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      let x = miniXRef.current;
+      let y = miniYRef.current;
+      let { dx, dy } = miniDirRef.current;
+      const speed = miniSpeedRef.current;
+
+      x += speed * dx;
+      y += speed * dy;
+
+      if (x <= 1) {
+        dx = 1;
+      } else if (x + miniVideoSize.width + 1 >= viewportWidth) {
+        dx = -1;
+      }
+
+      if (y <= 1) {
+        dy = 1;
+      } else if (y + miniVideoSize.height + 1 >= viewportHeight) {
+        dy = -1;
+      }
+
+      miniXRef.current = x;
+      miniYRef.current = y;
+      miniDirRef.current = { dx, dy };
+      miniVideoPosRef.current = { x, y };
+      setMiniVideoPos({ x, y });
+
+      miniAnimFrameRef.current = requestAnimationFrame(step);
+    };
+    miniAnimFrameRef.current = requestAnimationFrame(step);
+    return () => {
+      if (miniAnimFrameRef.current) cancelAnimationFrame(miniAnimFrameRef.current);
+      miniAnimFrameRef.current = null;
+    };
+  }, [showCatVideoMini]);
+
+  const shrinkSnakePreserveScore = useCallback(() => {
+    const initialPos = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
+    setSnake([initialPos]);
+    logicalSnakeRef.current = [initialPos];
+    directionRef.current = { x: 1, y: 0 };
+    directionQueueRef.current = [];
+    // Respawn food away from the snake
+    const pos = getRandomPosition([initialPos]);
+    if (pos) {
+      setFood({ ...pos, type: getRandomFoodType() });
+    }
+    setSuperFood(null);
+    setIsPaused(false);
+    setGameOver(false);
+    setNotification({
+      id: 'snake-shrunk',
+      type: 'info',
+      message: 'Board filled! Snake reset, score kept.',
+      title: 'Board Full',
+    });
+  }, []);
 
   useEffect(() => {
     if (gameOver || isGameStarting || isPaused) {
@@ -961,6 +1134,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         head.x += directionRef.current.x;
         head.y += directionRef.current.y;
 
+        // If board is full (or effectively full), shrink snake instead of game over
+        if (newSnake.length >= GRID_WIDTH * GRID_HEIGHT) {
+          setTimeout(handleBoardFull, 0);
+          return prevSnake;
+        }
+
         let collisionDetected = false;
         // Wall collision
         if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT) {
@@ -979,6 +1158,11 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         }
 
         if (collisionDetected) {
+          // If collision occurs because there is no space to move but snake fills board, shrink
+          if (newSnake.length >= GRID_WIDTH * GRID_HEIGHT - 1) {
+            setTimeout(handleBoardFull, 0);
+            return prevSnake;
+          }
           setGameOver(true);
           playSound('game_over');
           return prevSnake; // Return current snake state before collision to prevent moving into wall/self
@@ -1390,12 +1574,17 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     // Start countdown (sound will be handled by separate useEffect)
     setIsGameStarting(true);
     setCountdownValue(3);
-    const initialSnakePos = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
-    setSnake([initialSnakePos]);
-    setFood({
-      ...getRandomPosition([initialSnakePos]),
-      type: getRandomFoodType(),
-    });
+    const initialSnakeArray = buildInitialSnake(1);
+    const initialSnakePos = initialSnakeArray[0];
+    setSnake(initialSnakeArray);
+    logicalSnakeRef.current = initialSnakeArray;
+    const newFoodPos = getRandomPosition(initialSnakeArray);
+    if (newFoodPos) {
+      setFood({
+        ...newFoodPos,
+        type: getRandomFoodType(),
+      });
+    }
     setSuperFood(null);
     // setDirection({ x: 1, y: 0 });
     // setDirectionQueue([]);
@@ -1539,6 +1728,32 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             {isGameStarting && countdownValue > 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 rounded-md z-20">
                 <p className="text-6xl font-bold text-white animate-ping" style={{ animationDuration: '1s' }}>{countdownValue}</p>
+              </div>
+            )}
+
+            {/* Cat Video: Fullscreen or Mini using single element to preserve playback */}
+            {(showCatVideoFullscreen || showCatVideoMini) && (
+              <div
+                className={showCatVideoFullscreen ? "fixed inset-0 z-50 bg-black" : "fixed z-40 pointer-events-none"}
+                style={showCatVideoFullscreen ? undefined : { left: miniVideoPos.x, top: miniVideoPos.y, width: miniVideoSize.width, height: miniVideoSize.height }}
+              >
+                <video
+                  ref={catVideoRef}
+                  src="/videos/cat.mp4"
+                  autoPlay
+                  muted={false}
+                  playsInline
+                  className={showCatVideoFullscreen ? "w-full h-full object-fill" : "w-full h-full object-fill rounded-md shadow-lg opacity-70"}
+                  controls={false}
+                  onEnded={() => {
+                    setShowCatVideoMini(false);
+                    setShowCatVideoFullscreen(false);
+                    if (miniVideoTimerRef.current) {
+                      clearInterval(miniVideoTimerRef.current);
+                      miniVideoTimerRef.current = null;
+                    }
+                  }}
+                />
               </div>
             )}
 
