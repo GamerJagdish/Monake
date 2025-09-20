@@ -42,7 +42,11 @@ interface NotificationMessage {
 const NFT_CONTRACT_ADDRESS = '0x9d40e8d15af68f14fdf134120c03013cf0a16d00'; // Deployed NFT contract address
 
 // Countdown Timer Component
-const CountdownTimer: React.FC = () => {
+interface CountdownTimerProps {
+  onExpirationChange?: (isExpired: boolean) => void;
+}
+
+const CountdownTimer: React.FC<CountdownTimerProps> = ({ onExpirationChange }) => {
   const [timeLeft, setTimeLeft] = useState({
     days: 0,
     hours: 0,
@@ -50,6 +54,7 @@ const CountdownTimer: React.FC = () => {
     seconds: 0
   });
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
     const targetDate = new Date('2025-09-23T23:59:59').getTime();
@@ -65,8 +70,10 @@ const CountdownTimer: React.FC = () => {
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
       setTimeLeft({ days, hours, minutes, seconds });
+      setIsExpired(false);
     } else {
       setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      setIsExpired(true);
     }
     
     setIsLoaded(true);
@@ -82,13 +89,22 @@ const CountdownTimer: React.FC = () => {
         const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
         setTimeLeft({ days, hours, minutes, seconds });
+        setIsExpired(false);
       } else {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        setIsExpired(true);
       }
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
+
+  // Notify parent component when expiration status changes
+  useEffect(() => {
+    if (onExpirationChange) {
+      onExpirationChange(isExpired);
+    }
+  }, [isExpired, onExpirationChange]);
 
   // Check if we're in the final 24 hours for extra urgency
   const isFinalDay = timeLeft.days === 0 && timeLeft.hours < 24;
@@ -281,6 +297,7 @@ const NFTPage: React.FC = () => {
   const [isMinting, setIsMinting] = useState(false);
   const [totalSupply, setTotalSupply] = useState<bigint | null>(null);
   const [userBalance, setUserBalance] = useState<bigint | null>(null);
+  const [isTimerExpired, setIsTimerExpired] = useState(false);
 
   const { address, isConnected, chainId, connector } = useAccount();
   const { connect, connectors } = useConnect();
@@ -642,7 +659,7 @@ const NFTPage: React.FC = () => {
 
         <CardContent className="flex flex-col items-center space-y-6 p-6">
           {/* Countdown Timer */}
-          <CountdownTimer />
+          <CountdownTimer onExpirationChange={setIsTimerExpired} />
           
           {/* NFT Image */}
            <motion.div
@@ -811,10 +828,10 @@ const NFTPage: React.FC = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleMintNFT}
-                disabled={isMinting || isMintingContract || !isConnected || chainId !== monadTestnet.id}
+                disabled={isMinting || isMintingContract || !isConnected || chainId !== monadTestnet.id || isTimerExpired}
                 className="w-full py-3 text-lg sm:text-xl bg-green-500 hover:bg-green-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-md transition-colors duration-150 ease-in-out"
               >
-                {isMinting || isMintingContract ? 'Minting...' : 'Mint NFT'}
+                {isMinting || isMintingContract ? 'Minting...' : isTimerExpired ? 'Minting Expired' : 'Mint NFT'}
               </motion.button>
             </motion.div>
 
