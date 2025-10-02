@@ -71,14 +71,43 @@ const getRandomFoodType = (isSuper: boolean = false): FoodItem => {
 const getRandomPosition = (existingPositions: { x: number, y: number }[] = []): Position | null => {
   const occupiedSet = new Set(existingPositions.map(p => `${p.x},${p.y}`));
   const freePositions: Position[] = [];
+  const openSpacePositions: Position[] = []; // Positions with more open neighbors
+  
   for (let y = 0; y < GRID_HEIGHT; y++) {
     for (let x = 0; x < GRID_WIDTH; x++) {
       if (!occupiedSet.has(`${x},${y}`)) {
         freePositions.push({ x, y });
+        
+        // Count free neighbors to prioritize open spaces
+        let freeNeighbors = 0;
+        const neighbors = [
+          { x: x - 1, y }, { x: x + 1, y },
+          { x, y: y - 1 }, { x, y: y + 1 }
+        ];
+        
+        for (const neighbor of neighbors) {
+          if (neighbor.x >= 0 && neighbor.x < GRID_WIDTH && 
+              neighbor.y >= 0 && neighbor.y < GRID_HEIGHT &&
+              !occupiedSet.has(`${neighbor.x},${neighbor.y}`)) {
+            freeNeighbors++;
+          }
+        }
+        
+        // Prioritize positions with 3+ free neighbors (more open spaces)
+        if (freeNeighbors >= 3) {
+          openSpacePositions.push({ x, y });
+        }
       }
     }
   }
+  
   if (freePositions.length === 0) return null;
+  
+  // 80% chance to use open space if available, otherwise use any free position
+  if (openSpacePositions.length > 0 && Math.random() < 0.8) {
+    return openSpacePositions[Math.floor(Math.random() * openSpacePositions.length)];
+  }
+  
   return freePositions[Math.floor(Math.random() * freePositions.length)];
 };
 
@@ -703,7 +732,6 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
 
   const spawnNewFood = useCallback(() => {
     const currentSnake = logicalSnakeRef.current;
-    const currentFood = foodRef.current;
     const currentSuperFood = superFoodRef.current;
 
     // Optimized: Build occupied positions more efficiently
@@ -714,12 +742,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
       occupiedPositions.push(currentSnake[i]);
     }
 
-    // Add current food position if exists
-    if (currentFood) {
-      occupiedPositions.push({ x: currentFood.x, y: currentFood.y });
-    }
-
-    // Add super food position if exists
+    // Add super food position if exists (to prevent overlap)
     if (currentSuperFood) {
       occupiedPositions.push({ x: currentSuperFood.x, y: currentSuperFood.y });
     }
@@ -750,7 +773,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
           occupiedPositions.push(currentSnake[i]);
         }
 
-        // Add current food position if exists
+        // Add current food position if exists (to prevent overlap)
         if (currentFood) {
           occupiedPositions.push({ x: currentFood.x, y: currentFood.y });
         }
@@ -1171,21 +1194,29 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         newSnake.unshift(head);
 
         let ateFood = false;
+        let ateSuperFood = false;
+        let ateNormalFood = false;
+        
         // Get current food and superFood from refs to avoid stale closures
         const currentFood = foodRef.current;
         const currentSuperFood = superFoodRef.current;
 
-        // Super Food collision
+        // Check Super Food collision
         if (currentSuperFood && head.x === currentSuperFood.x && head.y === currentSuperFood.y) {
           setScore(s => s + currentSuperFood.type.score);
           playSound('super_eat');
           setSuperFood(null); // Remove super food
+          ateSuperFood = true;
           ateFood = true; // Snake grows
         }
-        // Normal Food collision
-        else if (currentFood && head.x === currentFood.x && head.y === currentFood.y) {
+        
+        // Check Normal Food collision (can happen simultaneously if they overlap)
+        if (currentFood && head.x === currentFood.x && head.y === currentFood.y) {
           setScore(s => s + currentFood.type.score);
-          playSound('eat');
+          // Only play eat sound if we didn't already play super_eat
+          if (!ateSuperFood) {
+            playSound('eat');
+          }
           spawnNewFood();
           // Clear any existing timeout before setting a new one
           if (superFoodTimeoutRef.current) {
@@ -1195,6 +1226,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             trySpawnSuperFood();
             superFoodTimeoutRef.current = null;
           }, 0);
+          ateNormalFood = true;
           ateFood = true; // Snake grows
         }
 
