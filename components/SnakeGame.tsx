@@ -38,7 +38,7 @@ const TEXT_COLOR = "#e2e8f0"; // Tailwind slate-200
 const GAME_SPEED = 250; // milliseconds, more comfortable speed
 const SNAKE_INTERPOLATION_FACTOR = 0.25; // Added for smooth visual interpolation
 const SUPER_FOOD_SPAWN_CHANCE = 0.2; // 20% chance to spawn super food after normal food
-const SUPER_FOOD_BASE_DURATION = 50; // in game ticks (50 * 120ms = 6 seconds)
+const SUPER_FOOD_BASE_DURATION = 48; // in game ticks (48 * 250ms = 12 seconds)
 
 interface FoodItem {
   name: string;
@@ -72,27 +72,27 @@ const getRandomPosition = (existingPositions: { x: number, y: number }[] = []): 
   const occupiedSet = new Set(existingPositions.map(p => `${p.x},${p.y}`));
   const freePositions: Position[] = [];
   const openSpacePositions: Position[] = []; // Positions with more open neighbors
-  
+
   for (let y = 0; y < GRID_HEIGHT; y++) {
     for (let x = 0; x < GRID_WIDTH; x++) {
       if (!occupiedSet.has(`${x},${y}`)) {
         freePositions.push({ x, y });
-        
+
         // Count free neighbors to prioritize open spaces
         let freeNeighbors = 0;
         const neighbors = [
           { x: x - 1, y }, { x: x + 1, y },
           { x, y: y - 1 }, { x, y: y + 1 }
         ];
-        
+
         for (const neighbor of neighbors) {
-          if (neighbor.x >= 0 && neighbor.x < GRID_WIDTH && 
-              neighbor.y >= 0 && neighbor.y < GRID_HEIGHT &&
-              !occupiedSet.has(`${neighbor.x},${neighbor.y}`)) {
+          if (neighbor.x >= 0 && neighbor.x < GRID_WIDTH &&
+            neighbor.y >= 0 && neighbor.y < GRID_HEIGHT &&
+            !occupiedSet.has(`${neighbor.x},${neighbor.y}`)) {
             freeNeighbors++;
           }
         }
-        
+
         // Prioritize positions with 3+ free neighbors (more open spaces)
         if (freeNeighbors >= 3) {
           openSpacePositions.push({ x, y });
@@ -100,14 +100,14 @@ const getRandomPosition = (existingPositions: { x: number, y: number }[] = []): 
       }
     }
   }
-  
+
   if (freePositions.length === 0) return null;
-  
+
   // 80% chance to use open space if available, otherwise use any free position
   if (openSpacePositions.length > 0 && Math.random() < 0.8) {
     return openSpacePositions[Math.floor(Math.random() * openSpacePositions.length)];
   }
-  
+
   return freePositions[Math.floor(Math.random() * freePositions.length)];
 };
 
@@ -539,7 +539,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         });
         setScoreSubmissionMessage('Switching to Monad Testnet...');
         setShowScoreSubmissionStatus(true);
-        
+
         // Try to switch chain with error handling for getChainId issues
         if (switchChain) {
           await switchChain({ chainId: monadTestnet.id });
@@ -572,7 +572,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             }
           }
         }
-        
+
         await new Promise(resolve => setTimeout(resolve, 1500));
       } catch (e) {
         setNotification({
@@ -700,9 +700,9 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     setVisualSnake([...snake]);
   }, [snake]);
 
-  
 
-  
+
+
 
   // Cleanup function to clear all timers on unmount
   useEffect(() => {
@@ -1005,7 +1005,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
   const miniVideoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [miniVideoStartTime, setMiniVideoStartTime] = useState<number>(32);
 
-  
+
 
   const handleBoardFull = useCallback(() => {
     if (showCatVideoFullscreen || showCatVideoMini) return; // Already handling
@@ -1016,8 +1016,8 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
     // Start or restart the video playback
     setTimeout(() => {
       if (catVideoRef.current) {
-        try { catVideoRef.current.currentTime = 0; } catch {}
-        catVideoRef.current.play().catch(() => {});
+        try { catVideoRef.current.currentTime = 0; } catch { }
+        catVideoRef.current.play().catch(() => { });
       }
     }, 0);
 
@@ -1038,7 +1038,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         miniYRef.current = startY;
         miniDirRef.current = { dx: Math.random() < 0.5 ? -1 : 1, dy: Math.random() < 0.5 ? -1 : 1 };
         miniSpeedRef.current = 2;
-      } catch {}
+      } catch { }
       // Reset snake to allow movement again, preserving score
       const initialPos = { x: Math.floor(GRID_WIDTH / 2), y: Math.floor(GRID_HEIGHT / 2) };
       setSnake([initialPos]);
@@ -1194,39 +1194,73 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         newSnake.unshift(head);
 
         let ateFood = false;
-        let ateSuperFood = false;
-        let ateNormalFood = false;
-        
+
         // Get current food and superFood from refs to avoid stale closures
         const currentFood = foodRef.current;
         const currentSuperFood = superFoodRef.current;
 
-        // Check Super Food collision
+        // Check Super Food collision first
         if (currentSuperFood && head.x === currentSuperFood.x && head.y === currentSuperFood.y) {
           setScore(s => s + currentSuperFood.type.score);
           playSound('super_eat');
           setSuperFood(null); // Remove super food
-          ateSuperFood = true;
           ateFood = true; // Snake grows
         }
-        
+
         // Check Normal Food collision (can happen simultaneously if they overlap)
         if (currentFood && head.x === currentFood.x && head.y === currentFood.y) {
           setScore(s => s + currentFood.type.score);
-          // Only play eat sound if we didn't already play super_eat
-          if (!ateSuperFood) {
+          // Only play eat sound if we didn't already eat super food
+          if (!ateFood) {
             playSound('eat');
           }
-          spawnNewFood();
-          // Clear any existing timeout before setting a new one
+
+          // Spawn new food immediately using current snake state
+          const currentSnake = newSnake;
+          const currentSuperFoodForSpawn = superFoodRef.current;
+          const occupiedPositions: Position[] = [...currentSnake];
+          if (currentSuperFoodForSpawn) {
+            occupiedPositions.push({ x: currentSuperFoodForSpawn.x, y: currentSuperFoodForSpawn.y });
+          }
+          const newFoodPos = getRandomPosition(occupiedPositions);
+          if (newFoodPos) {
+            const newFood = {
+              ...newFoodPos,
+              type: getRandomFoodType(),
+            };
+            setFood(newFood);
+            foodRef.current = newFood; // Update ref immediately
+          }
+
+          // Try to spawn super food after a delay
           if (superFoodTimeoutRef.current) {
             clearTimeout(superFoodTimeoutRef.current);
           }
           superFoodTimeoutRef.current = setTimeout(() => {
-            trySpawnSuperFood();
+            if (Math.random() < SUPER_FOOD_SPAWN_CHANCE) {
+              const superFoodType = getRandomFoodType(true);
+              if (superFoodType && superFoodType.duration) {
+                const latestSnake = logicalSnakeRef.current;
+                const latestFood = foodRef.current;
+                const occupiedForSuper: Position[] = [...latestSnake];
+                if (latestFood) {
+                  occupiedForSuper.push({ x: latestFood.x, y: latestFood.y });
+                }
+                const superPos = getRandomPosition(occupiedForSuper);
+                if (superPos) {
+                  const newSuperFood = {
+                    ...superPos,
+                    type: superFoodType,
+                    timer: superFoodType.duration,
+                  };
+                  setSuperFood(newSuperFood);
+                  superFoodRef.current = newSuperFood; // Update ref immediately
+                }
+              }
+            }
             superFoodTimeoutRef.current = null;
           }, 0);
-          ateNormalFood = true;
+
           ateFood = true; // Snake grows
         }
 
@@ -1247,7 +1281,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         superFoodTimeoutRef.current = null;
       }
     };
-  }, [gameOver, isGameStarting, isPaused, playSound, spawnNewFood, trySpawnSuperFood]); // Added isPaused to dependencies
+  }, [gameOver, isGameStarting, isPaused, playSound]); // Removed spawnNewFood and trySpawnSuperFood from dependencies
 
   // Game over sound is now played directly when gameOver is set within the game loop.
 
@@ -1321,7 +1355,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
         });
         setScoreSubmissionMessage('Switching to Monad Testnet to submit score...');
         setShowScoreSubmissionStatus(true);
-        
+
         // Try to switch chain with error handling for getChainId issues
         if (switchChain) {
           await switchChain({ chainId: monadTestnet.id });
@@ -1354,7 +1388,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             }
           }
         }
-        
+
         // Add a small delay to allow wagmi state to update
         await new Promise(resolve => setTimeout(resolve, 1500));
         // Re-check chainId after switch attempt by checking wagmi's reactive state or window.ethereum if needed
@@ -1702,22 +1736,22 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
             </div>
             <div className="flex-initial flex gap-2"> {/* Buttons on the right */}
               {/* Pause/Resume Button*/}
-              
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
+
+              <motion.div
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <Button
+                  onClick={() => setIsPaused(!isPaused)}
+                  variant="outline"
+                  size="icon"
+                  className="p-2 h-auto bg-gray-800/50 hover:bg-gray-50/80 border-gray-700 text-slate-200 rounded-full"
+                  aria-label={isPaused ? "Resume" : "Pause"}
                 >
-                  <Button
-                    onClick={() => setIsPaused(!isPaused)}
-                    variant="outline"
-                    size="icon"
-                    className="p-2 h-auto bg-gray-800/50 hover:bg-gray-50/80 border-gray-700 text-slate-200 rounded-full"
-                    aria-label={isPaused ? "Resume" : "Pause"}
-                  >
-                    {isPaused ? <Play size={20} /> : <Pause size={20} />}
-                  </Button>
-                </motion.div>
-              
+                  {isPaused ? <Play size={20} /> : <Pause size={20} />}
+                </Button>
+              </motion.div>
+
               <motion.div
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -1796,10 +1830,10 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                   <Pause className="w-16 h-16 text-white mx-auto mb-4" />
                   <p className="text-2xl font-bold text-white mb-2">Game Paused</p>
                   {!showVirtualKeys && (
-                  <p className="text-sm text-gray-300">Press Spacebar or click Resume to continue</p>
+                    <p className="text-sm text-gray-300">Press Spacebar or click Resume to continue</p>
                   )}
                   {showVirtualKeys && (
-                  <p className="text-sm text-gray-300">Click Resume to continue</p>
+                    <p className="text-sm text-gray-300">Click Resume to continue</p>
                   )}
                 </div>
               </div>
@@ -1911,7 +1945,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
               <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20">
                 <Image src="/images/ded-snake-lol.png" alt="Game Over Snake" width={200} height={200} style={{ width: '70%', height: 'auto' }} className="mb-3" priority />
                 <p className="text-5xl font-bold text-red-500 mb-2 animate-pulse">Game Over</p>
-                
+
                 <p className="text-xl text-slate-100 mb-4">Final Score: {score}</p>
 
                 {/* Score Submission / Payment Button Logic */}
@@ -2037,31 +2071,31 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                         `Can anyone beat my ${score} points in the Monad Snake Game? Give it a shot! 🏆`,
                         `Feeling proud of my ${score} in the Monad Snake Game! Join the fun! 🎉`
                       ];
-                      
+
                       const randomIndex = Math.floor(Math.random() * shareMessages.length);
                       const selectedMessage = shareMessages[randomIndex];
-                      
+
                       // Generate random style (1-10) for OG image
                       const randomStyle = Math.floor(Math.random() * 10) + 1;
-                      
+
                       // Generate OG image URL with user data, score, and random style
                       const username = farcasterUser?.username || 'Player';
                       const profileImage = farcasterUser?.pfpUrl || '';
-                      
+
                       // Build URL parameters safely
                       const params = new URLSearchParams({
                         username: username,
                         score: score.toString(),
                         style: randomStyle.toString()
                       });
-                      
+
                       // Only add image parameter if it exists and is not empty
                       if (profileImage && profileImage.trim() !== '') {
                         params.append('image', profileImage);
                       }
-                      
+
                       const ogImageUrl = `${APP_URL}/api/og?${params.toString()}`;
-                      
+
                       // Validate URL before using
                       try {
                         new URL(ogImageUrl);
@@ -2069,7 +2103,7 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
                         console.error('Invalid OG image URL:', urlError);
                         return;
                       }
-                      
+
                       // Temporarily disabled OG image sharing - only share text and app URL
                       await actions.composeCast({
                         text: selectedMessage,
@@ -2108,12 +2142,12 @@ const SnakeGame: React.FC<SnakeGameProps> = ({ onBackToMenu, isMuted, setIsMuted
               />
             </div>
           )}
-                                           {/* Only show text on desktop devices */}
-                      {!showVirtualKeys && (
-                        <p className="text-[11px] text-gray-400 text-center">
-                          Use WASD/Arrow Keys to move, Space to Pause/Resume
-                        </p>
-                      )}
+          {/* Only show text on desktop devices */}
+          {!showVirtualKeys && (
+            <p className="text-[11px] text-gray-400 text-center">
+              Use WASD/Arrow Keys to move, Space to Pause/Resume
+            </p>
+          )}
         </CardFooter>
 
       </Card>
