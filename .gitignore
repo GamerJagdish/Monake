@@ -46,3 +46,4 @@ cache
 /lib/past-winners-data.json
 /lib/past-winners.ts
 SECURITY.md
+/scripts
